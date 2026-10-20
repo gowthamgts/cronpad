@@ -9,49 +9,128 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+# Independent jobs so the slow parts run side by side; together they cover `just check`
+# plus the integration, load, restore and browser checks.
+# Each Go job keeps its own cache (see .github/actions/setup). The save step runs even
+# when tests fail, so a red run still warms the next one. Its path list must match the
+# restore step exactly.
 jobs:
-  check:
+  generated:
+    name: Generated code and dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
-        with:
-          go-version-file: go.mod
-          # Include the separately pinned lint tools, not just the application module.
-          cache-dependency-path: |
-            go.sum
-            tools/lint/go.sum
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
-        with:
-          version: 12.8.1
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: 24
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-      - name: Install just
-        # Avoid compiling Rust on every run; pin both the version and archive digest.
-        run: |
-          archive="$RUNNER_TEMP/just.tar.gz"
-          curl --fail --silent --show-error --location --retry 3 \
-            https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-x86_64-unknown-linux-musl.tar.gz \
-            --output "$archive"
-          echo "4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d  $archive" | sha256sum --check
-          mkdir -p "$RUNNER_TEMP/just-bin"
-          tar -xzf "$archive" -C "$RUNNER_TEMP/just-bin" just
-          echo "$RUNNER_TEMP/just-bin" >> "$GITHUB_PATH"
+      - id: setup
+        uses: ./.github/actions/setup
+        with: {go: 'true', node: 'true'}
       - name: Check public dependency boundary
         run: just check-public-deps
-      - run: just check
+      - run: just check-generated
       - run: git diff --exit-code -- internal/store/sqlitegen web/src/api
+      - run: just lint-sql
+      - name: Save Go cache
+        if: ${{ !cancelled() && steps.setup.outputs.go-cache-key != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: ${{ steps.setup.outputs.go-cache-key }}
+
+  lint-go:
+    name: Go lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: setup
+        uses: ./.github/actions/setup
+        with: {go: 'true'}
+      - run: just lint-go
+      - name: Save Go cache
+        if: ${{ !cancelled() && steps.setup.outputs.go-cache-key != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: ${{ steps.setup.outputs.go-cache-key }}
+
+  web:
+    name: Web lint and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup
+        with: {node: 'true'}
+      - run: just lint-web
+      - run: just test-web
+
+  test-go:
+    name: Go tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: setup
+        uses: ./.github/actions/setup
+        with: {go: 'true'}
+      # web/dist/.gitkeep keeps the embed compiling without a frontend build.
+      - run: just test-go
+      - name: Save Go cache
+        if: ${{ !cancelled() && steps.setup.outputs.go-cache-key != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: ${{ steps.setup.outputs.go-cache-key }}
+
+  integration:
+    name: Integration, load and restore
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: setup
+        uses: ./.github/actions/setup
+        with: {go: 'true'}
       - run: go run ./tools/loadgen -jobs 5 -duration 2s
       - run: go run ./tools/loadgen -jobs 5 -duration 2s -janitor -prefill 100
       - run: ./tools/litestream-restore-test.sh
       - run: just test-integration
-      # just check -> check-version already built web/dist, ./bin/cronpad and the example.
-      # Test that exact binary instead of rebuilding the frontend/server via just e2e.
+      - name: Save Go cache
+        if: ${{ !cancelled() && steps.setup.outputs.go-cache-key != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: ${{ steps.setup.outputs.go-cache-key }}
+
+  browser:
+    name: Build, browser smoke and Lighthouse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - id: setup
+        uses: ./.github/actions/setup
+        with: {go: 'true', node: 'true'}
+      # Builds web/dist, ./bin/cronpad and the example, and checks version injection.
+      # e2e and Lighthouse then test that exact binary.
+      - run: just check-version
       # The runner has Google Chrome for browser smoke, axe and Lighthouse.
       - name: Browser smoke and accessibility
         run: pnpm --dir web e2e
       - name: Lighthouse
         run: pnpm --dir web lighthouse
+      - name: Save Go cache
+        if: ${{ !cancelled() && steps.setup.outputs.go-cache-key != '' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: ${{ steps.setup.outputs.go-cache-key }}

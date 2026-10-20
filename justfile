@@ -62,8 +62,12 @@ build: build-web
     CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/gowthamgts/cronpad/internal/version.Version=$BUILD_VERSION -X github.com/gowthamgts/cronpad/internal/version.Commit=$BUILD_COMMIT -X github.com/gowthamgts/cronpad/internal/version.BuildDate=$BUILD_DATE" -o bin/cronpad ./cmd/cronpad
     go build ./examples/ext-hello/...
 
-test: web-install
+test: test-go test-web
+
+test-go:
     go test -race ./...
+
+test-web: web-install
     pnpm --dir web test
     node --test tests/
 
@@ -81,8 +85,12 @@ lint-go:
     go tool -modfile=tools/lint/go.mod golangci-lint run --config .golangci.yml ./...
     go tool -modfile=tools/lint/go.mod golangci-lint run --config .golangci.yml --build-tags=integration ./...
 
-lint: web-install lint-go
+lint: lint-go lint-sql lint-web
+
+lint-sql:
     go tool sqlc vet
+
+lint-web: web-install
     pnpm --dir web lint
     pnpm --dir web typecheck
 
