@@ -5,6 +5,10 @@ on:
   pull_request:
 permissions:
   contents: read
+# A newer commit makes an older run for the same PR/branch redundant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -13,6 +17,10 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
+          # Include the separately pinned lint tools, not just the application module.
+          cache-dependency-path: |
+            go.sum
+            tools/lint/go.sum
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
         with:
           version: 12.8.1
@@ -22,7 +30,16 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Install just
-        run: cargo install just --version 1.58.0 --locked
+        # Avoid compiling Rust on every run; pin both the version and archive digest.
+        run: |
+          archive="$RUNNER_TEMP/just.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-x86_64-unknown-linux-musl.tar.gz \
+            --output "$archive"
+          echo "4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d  $archive" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/just-bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/just-bin" just
+          echo "$RUNNER_TEMP/just-bin" >> "$GITHUB_PATH"
       - name: Check public dependency boundary
         run: just check-public-deps
       - run: just check
@@ -31,4 +48,10 @@ jobs:
       - run: go run ./tools/loadgen -jobs 5 -duration 2s -janitor -prefill 100
       - run: ./tools/litestream-restore-test.sh
       - run: just test-integration
-      - run: just e2e # browser smoke, axe and Lighthouse against ./bin/cronpad (runner has Google Chrome)
+      # just check -> check-version already built web/dist, ./bin/cronpad and the example.
+      # Test that exact binary instead of rebuilding the frontend/server via just e2e.
+      # The runner has Google Chrome for browser smoke, axe and Lighthouse.
+      - name: Browser smoke and accessibility
+        run: pnpm --dir web e2e
+      - name: Lighthouse
+        run: pnpm --dir web lighthouse
