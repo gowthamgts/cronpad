@@ -69,7 +69,7 @@ test-go:
 
 test-web: web-install
     pnpm --dir web test
-    node --test tests/
+    node --test 'tests/**/*.test.cjs'
 
 test-integration:
     go test -count=1 -race -tags=integration -run='^TestGenericOIDCDexLogin$' -v ./internal/app

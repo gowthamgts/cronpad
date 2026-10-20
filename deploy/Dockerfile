@@ -1,4 +1,4 @@
-FROM node:24-slim AS web
+FROM node:26-slim AS web
 RUN npm install --global pnpm@12.8.1
 WORKDIR /src
 COPY pnpm-workspace.yaml pnpm-lock.yaml ./

@@ -16,7 +16,7 @@ jobs:
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
         with: {version: 12.8.1}
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with: {node-version: 24}
+        with: {node-version: 26}
       - run: cargo install just --version 1.58.0 --locked
       - run: just release
         env:
