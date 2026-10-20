@@ -93,6 +93,11 @@ linters:
   exclusions:
     generated: strict
     warn-unused: true
+    rules:
+      # errcheck 1.30 reports bare receives from `chan error`; we use them to
+      # wait for a goroutine to exit, and staticcheck rejects `_ = <-ch`.
+      - linters: [errcheck]
+        source: '<-'
 issues:
   # Report the full baseline in CI, not just the first few copies of a problem.
   max-issues-per-linter: 0
