@@ -169,6 +169,9 @@ func TestExtensionDepsExposeStatsAndLifecycleEvents(t *testing.T) {
 	if got["users"] != 1 || got["workspaces"] != 1 || got["workspaces.suspended"] != 0 || got["jobs"] != 1 || got["jobs.active"] != 1 || got["jobs.paused"] != 0 {
 		t.Fatalf("stats %v", got)
 	}
+	if f.a.Dispatcher.Workers.Alerts == nil {
+		t.Fatal("run alerts are not recorded")
+	}
 	received := make(chan ext.Event, 1)
 	f.a.deps.Events.Subscribe(func(_ context.Context, e ext.Event) { received <- e })
 	f.a.Dispatcher.Workers.Events.Publish(t.Context(), events.Event{Type: events.RunFailed, WorkspaceID: "ws_1", JobID: "job_1", RunID: "run_1", Error: "boom", At: time.Now()})
