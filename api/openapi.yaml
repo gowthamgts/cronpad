@@ -1,0 +1,1256 @@
+openapi: 3.1.0
+info:
+  title: cronpad API
+  version: 1.0.0
+servers:
+  - url: /
+security:
+  - bearer: []
+  - session: []
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: cp_<8 base62>_<32 base62>
+    session:
+      type: apiKey
+      in: cookie
+      name: cp_session
+  parameters:
+    id: {name: id, in: path, required: true, schema: {type: string, minLength: 1}}
+    ws: {name: ws, in: path, required: true, schema: {type: string, minLength: 1}}
+    name: {name: name, in: path, required: true, schema: {type: string, pattern: '^[A-Z][A-Z0-9_]{0,63}$'}}
+    provider: {name: provider, in: path, required: true, schema: {type: string}}
+    cursor: {name: cursor, in: query, schema: {type: string}}
+    limit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+    jobState: {name: state, in: query, schema: {type: string, enum: [active, paused, disabled, completed]}}
+    tag: {name: tag, in: query, schema: {type: string}}
+    search: {name: q, in: query, schema: {type: string}, description: Case-insensitive match on the job name.}
+    runStatus: {name: status, in: query, schema: {type: string, enum: [running, deferred, succeeded, failed, skipped, cancelled]}}
+    runTrigger: {name: trigger, in: query, schema: {type: string, enum: [schedule, manual, retry_manual]}}
+    slaBreached: {name: sla_breached, in: query, schema: {type: boolean}}
+    from: {name: from, in: query, schema: {type: string, format: date-time}}
+    to: {name: to, in: query, schema: {type: string, format: date-time}}
+    jobId: {name: job_id, in: query, schema: {type: string}}
+    action: {name: action, in: query, schema: {type: string}}
+    window: {name: window, in: query, schema: {type: string, enum: [1h, 24h, 7d, 30d], default: 24h}}
+    idempotency: {name: Idempotency-Key, in: header, schema: {type: string, maxLength: 200}, description: Replays the original response within 24 hours.}
+  responses:
+    Error:
+      description: Request rejected; error codes distinguish authentication, validation, limits and server errors.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Empty: {description: Mutation completed.}
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code]
+          properties:
+            code: {type: string, enum: [validation_failed, unauthorized, forbidden, workspace_suspended, limit_exceeded, not_found, conflict, idempotency_conflict, rate_limited, internal, unavailable]}
+            message: {type: string}
+            fields: {type: object, additionalProperties: {type: string}}
+            errors: {type: array, items: {type: object}}
+            limit: {type: string}
+            value: {type: integer}
+    Time: {type: [string, 'null'], format: date-time}
+    Schedule:
+      type: object
+      required: [expr]
+      properties:
+        expr: {type: string, minLength: 1, maxLength: 4096}
+        kind: {type: string, enum: [auto, cron, quartz, rrule, natural, once]}
+        timezone: {type: string}
+        starts_at: {$ref: '#/components/schemas/Time'}
+        ends_at: {$ref: '#/components/schemas/Time'}
+        count: {type: [integer, 'null'], minimum: 1}
+        canonical: {type: string}
+        description: {type: string}
+    Sink:
+      type: object
+      required: [kind, config]
+      properties:
+        kind: {type: string, enum: [webhook, command]}
+        config: {type: object, additionalProperties: true, description: At most 64 KiB; webhooks accept at most 50 headers.}
+    Retry:
+      type: object
+      properties:
+        max_attempts: {type: integer, minimum: 1}
+        backoff: {type: string, enum: [fixed, exponential]}
+        initial_interval: {type: string}
+        max_interval: {type: string}
+        multiplier: {type: number, minimum: 1}
+        jitter: {type: number, minimum: 0, maximum: 1}
+    JobCreate:
+      allOf:
+        - {$ref: '#/components/schemas/JobInput'}
+        - type: object
+          required: [name, schedule, sink]
+          additionalProperties: true
+    JobInput:
+      type: object
+      additionalProperties: false
+      properties:
+        name: {type: string, minLength: 1, maxLength: 200}
+        description: {type: string, maxLength: 10000}
+        tags: {type: array, maxItems: 50, items: {type: string}}
+        schedule: {$ref: '#/components/schemas/Schedule'}
+        sink: {$ref: '#/components/schemas/Sink'}
+        retry: {$ref: '#/components/schemas/Retry'}
+        timeout: {type: string}
+        sla_threshold: {type: [string, 'null']}
+        misfire_policy: {type: string, enum: [fire_once, fire_all, skip]}
+        overlap_policy: {type: string, enum: [allow, skip_if_running]}
+        auto_disable_threshold: {type: [integer, 'null'], minimum: 1}
+    Job:
+      type: object
+      required: [id, name, description, tags, schedule, sink, retry, timeout, sla_threshold, misfire_policy, overlap_policy, auto_disable_threshold, state, disabled_reason, consecutive_failures, next_run_at, last_run_at, last_run_status, version, created_at, updated_at]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        description: {type: [string, 'null']}
+        tags: {type: array, items: {type: string}}
+        schedule: {$ref: '#/components/schemas/Schedule'}
+        sink: {$ref: '#/components/schemas/Sink'}
+        retry: {$ref: '#/components/schemas/Retry'}
+        timeout: {type: string}
+        sla_threshold: {type: [string, 'null']}
+        misfire_policy: {type: string, enum: [fire_once, fire_all, skip]}
+        overlap_policy: {type: string, enum: [allow, skip_if_running]}
+        auto_disable_threshold: {type: [integer, 'null']}
+        state: {type: string, enum: [active, paused, disabled, completed]}
+        disabled_reason: {type: [string, 'null']}
+        consecutive_failures: {type: integer, minimum: 0}
+        version: {type: integer, minimum: 1}
+        next_run_at: {$ref: '#/components/schemas/Time'}
+        last_run_at: {$ref: '#/components/schemas/Time'}
+        last_run_status: {type: [string, 'null']}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        next_runs: {type: array, items: {type: string, format: date-time}, description: Present on single-job reads.}
+        stats_24h: {$ref: '#/components/schemas/JobStats'}
+        signing_secret: {type: string, description: Returned once for webhook creation or rotation.}
+    JobStats:
+      type: object
+      required: [runs, succeeded, failed, sla_breached, p95_start_lag_ms]
+      properties:
+        runs: {type: integer}
+        succeeded: {type: integer}
+        failed: {type: integer}
+        sla_breached: {type: integer}
+        p95_start_lag_ms: {type: [integer, 'null']}
+    RunBase:
+      type: object
+      required: [id, job_id, status, trigger, scheduled_at, claimed_at, started_at, finished_at, next_attempt_at, start_lag_ms, e2e_ms, sla_breached, last_error]
+      properties:
+        id: {type: string}
+        job_id: {type: string}
+        status: {type: string, enum: [running, deferred, succeeded, failed, skipped, cancelled]}
+        trigger: {type: string, enum: [schedule, manual, retry_manual]}
+        scheduled_at: {type: string, format: date-time}
+        claimed_at: {$ref: '#/components/schemas/Time'}
+        started_at: {$ref: '#/components/schemas/Time'}
+        finished_at: {$ref: '#/components/schemas/Time'}
+        next_attempt_at: {$ref: '#/components/schemas/Time'}
+        start_lag_ms: {type: [integer, 'null']}
+        e2e_ms: {type: [integer, 'null']}
+        sla_breached: {type: boolean}
+        last_error: {type: [string, 'null']}
+        skip_reason: {type: [string, 'null'], enum: [quota_exceeded, workspace_suspended, previous_run_in_progress, misfire, null]}
+    Run:
+      allOf:
+        - {$ref: '#/components/schemas/RunBase'}
+        - type: object
+          required: [attempts]
+          properties:
+            attempts: {type: integer, minimum: 0, description: Number of attempts made so far.}
+    Attempt:
+      type: object
+      required: [n, started_at, finished_at, duration_ms, outcome, status_code, error, request_summary, response_body]
+      properties:
+        n: {type: integer, minimum: 0, description: Zero-based attempt number; the first try is 0.}
+        started_at: {type: string, format: date-time}
+        finished_at: {$ref: '#/components/schemas/Time'}
+        duration_ms: {type: [integer, 'null']}
+        outcome: {type: [string, 'null'], enum: [success, retryable, fatal, timeout, null]}
+        status_code: {type: [integer, 'null']}
+        error: {type: [string, 'null']}
+        request_summary: {type: [string, 'null']}
+        response_body: {type: [string, 'null']}
+    RunDetail:
+      allOf:
+        - {$ref: '#/components/schemas/RunBase'}
+        - type: object
+          required: [attempts]
+          properties:
+            attempts:
+              type: array
+              items: {$ref: '#/components/schemas/Attempt'}
+    Workspace:
+      type: object
+      required: [id, name, slug, plan, created_at]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        slug: {type: string}
+        plan: {type: string}
+        created_at: {type: string, format: date-time}
+    Key:
+      type: object
+      required: [id, name, prefix, scopes, created_at]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        prefix: {type: string}
+        scopes: {type: array, items: {type: string, enum: ['*', 'jobs:read', 'jobs:write', 'runs:read']}}
+        created_at: {type: string, format: date-time}
+        last_used_at: {$ref: '#/components/schemas/Time'}
+        revoked_at: {$ref: '#/components/schemas/Time'}
+        key: {type: string, pattern: '^cp_[A-Za-z0-9]{8}_[A-Za-z0-9]{32}$', description: Returned once.}
+    Secret:
+      type: object
+      additionalProperties: false
+      required: [name, created_at, updated_at]
+      properties:
+        name: {type: string}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    Audit:
+      type: object
+      required: [id, actor, action, target, details, created_at]
+      properties:
+        id: {type: string}
+        actor: {type: string}
+        action: {type: string}
+        target: {type: [string, 'null']}
+        details: {type: [object, 'null']}
+        created_at: {type: string, format: date-time}
+    TestResult:
+      type: object
+      required: [outcome, status_code, duration_ms, response_body, request_summary]
+      properties:
+        outcome: {type: string, enum: [success, retryable, fatal, timeout]}
+        status_code: {type: integer}
+        duration_ms: {type: integer}
+        response_body: {type: string}
+        request_summary: {type: string}
+        error: {type: string}
+    AlertChannelTestResult:
+      type: object
+      required: [outcome, duration_ms, error]
+      properties:
+        outcome: {type: string, enum: [success, fatal]}
+        duration_ms: {type: integer}
+        error: {type: string, description: Empty when the outcome is success.}
+    ScheduleInput:
+      type: object
+      additionalProperties: false
+      required: [expr]
+      properties:
+        expr: {type: string, maxLength: 4096}
+        kind: {type: string, enum: [auto, cron, quartz, rrule, natural, once]}
+        timezone: {type: string}
+        count: {type: integer, minimum: 1, maximum: 100}
+        after: {type: string, format: date-time}
+    JobPage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/Job'}}
+        next_cursor: {type: [string, 'null']}
+    RunPage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/Run'}}
+        next_cursor: {type: [string, 'null']}
+    KeyPage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/Key'}}
+        next_cursor: {type: [string, 'null']}
+    SecretPage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/Secret'}}
+        next_cursor: {type: [string, 'null']}
+    AuditPage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/Audit'}}
+        next_cursor: {type: [string, 'null']}
+    Me:
+      type: object
+      required: [id, email, name, workspaces]
+      properties:
+        id: {type: string}
+        email: {type: string}
+        name: {type: [string, 'null']}
+        workspaces: {type: array, items: {$ref: '#/components/schemas/Workspace'}}
+    WorkspacePatch:
+      type: object
+      additionalProperties: false
+      properties:
+        name: {type: string, minLength: 1, maxLength: 200}
+        slug: {type: string, pattern: '^[a-z0-9][a-z0-9_-]{0,63}$'}
+    KeyInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 200}
+        scopes: {type: array, items: {type: string, enum: ['*', 'jobs:read', 'jobs:write', 'runs:read']}}
+    SecretInput:
+      type: object
+      additionalProperties: false
+      required: [value]
+      properties:
+        value: {type: string, description: Maximum 8192 UTF-8 bytes.}
+    Trigger:
+      type: object
+      required: [run_id]
+      properties:
+        run_id: {type: string}
+    SigningSecret:
+      type: object
+      required: [signing_secret]
+      properties:
+        signing_secret: {type: string}
+    Stats:
+      type: object
+      required: [window, jobs, runs, start_lag_ms, failing_jobs]
+      properties:
+        window: {type: string, enum: [1h, 24h, 7d, 30d]}
+        jobs:
+          type: object
+          required: [active, paused, disabled, completed]
+          additionalProperties: {type: integer}
+          properties:
+            active: {type: integer}
+            paused: {type: integer}
+            disabled: {type: integer}
+            completed: {type: integer}
+        runs:
+          type: object
+          required: [total, succeeded, failed, sla_breached]
+          additionalProperties: {type: integer}
+          properties:
+            total: {type: integer}
+            succeeded: {type: integer}
+            failed: {type: integer}
+            sla_breached: {type: integer}
+        start_lag_ms:
+          type: object
+          required: [p50, p95, p99]
+          properties:
+            p50: {type: integer}
+            p95: {type: integer}
+            p99: {type: integer}
+        failing_jobs:
+          type: array
+          items:
+            type: object
+            required: [id, name, consecutive_failures]
+            properties:
+              id: {type: string}
+              name: {type: string}
+              consecutive_failures: {type: integer}
+    Features:
+      type: object
+      additionalProperties: false
+      required: [public_url, auth, sinks, defaults]
+      properties:
+        public_url: {type: string}
+        defaults:
+          type: object
+          additionalProperties: false
+          description: "What a new job's code fields start with; each job stores its own copy."
+          required: [success_codes, retry_on, success_exit_codes, retry_exit_codes]
+          properties:
+            success_codes: {type: array, items: {type: string}}
+            retry_on: {type: array, items: {type: string}}
+            success_exit_codes: {type: array, items: {type: integer}}
+            retry_exit_codes: {type: array, items: {type: integer}}
+        auth:
+          type: object
+          additionalProperties: false
+          required: [providers, dev_login, signup, setup]
+          properties:
+            oidc_display_name: {type: string, description: "Display label for the instance OIDC login provider."}
+            providers: {type: array, items: {type: string}, description: "Names usable in /auth/{provider}/login."}
+            dev_login: {type: boolean}
+            signup: {type: boolean, description: "Whether a new person may create an account (auth.allow_signup). The first user of an empty server always may."}
+            setup: {type: boolean, description: "True until the first user has signed in; the dashboard shows onboarding."}
+        sinks:
+          type: object
+          additionalProperties: false
+          required: [webhook, command]
+          properties:
+            webhook: {type: boolean}
+            command: {type: boolean}
+    AlertEvent:
+      type: string
+      enum: [run.failed, run.deferred, run.timeout, run.sla_breached, run.succeeded, job.recovered, job.auto_disabled, job.completed, system.lease_expired, system.degraded, workspace.quota_warning, workspace.quota_exceeded]
+    AlertChannel:
+      type: object
+      required: [id, kind, name, config]
+      properties:
+        id: {type: string}
+        kind: {type: string, enum: [email, webhook]}
+        name: {type: string, minLength: 1, maxLength: 200}
+        config: {type: object, additionalProperties: true, description: "email: {to: [addresses]}. webhook: {url, format: slack|discord|generic}."}
+        verified: {type: boolean}
+        signing_secret: {type: string, description: Returned once for webhook channels.}
+        created_at: {type: string, format: date-time}
+    AlertChannelInput:
+      type: object
+      additionalProperties: false
+      properties:
+        kind: {type: string, enum: [email, webhook]}
+        name: {type: string, minLength: 1, maxLength: 200}
+        config: {type: object, additionalProperties: true}
+    JobSelector:
+      type: object
+      properties:
+        all: {type: boolean}
+        job_ids: {type: array, items: {type: string}}
+        tags: {type: array, items: {type: string}}
+    AlertConditions:
+      type: object
+      properties:
+        min_consecutive: {type: integer, minimum: 1}
+        min_attempt: {type: integer, minimum: 1}
+    AlertRule:
+      type: object
+      required: [id, name, job_selector, events, channel_ids, cooldown, enabled]
+      properties:
+        id: {type: string}
+        name: {type: string, minLength: 1, maxLength: 200}
+        job_selector: {$ref: '#/components/schemas/JobSelector'}
+        events: {type: array, minItems: 1, items: {$ref: '#/components/schemas/AlertEvent'}}
+        conditions: {$ref: '#/components/schemas/AlertConditions'}
+        channel_ids: {type: array, items: {type: string}}
+        cooldown: {type: string}
+        enabled: {type: boolean}
+    AlertRuleInput:
+      type: object
+      additionalProperties: false
+      properties:
+        name: {type: string, minLength: 1, maxLength: 200}
+        job_selector: {$ref: '#/components/schemas/JobSelector'}
+        events: {type: array, minItems: 1, items: {$ref: '#/components/schemas/AlertEvent'}}
+        conditions: {$ref: '#/components/schemas/AlertConditions'}
+        channel_ids: {type: array, items: {type: string}}
+        cooldown: {type: string}
+        enabled: {type: boolean}
+    AlertChannelPage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/AlertChannel'}}
+        next_cursor: {type: [string, 'null']}
+    AlertRulePage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data: {type: array, items: {$ref: '#/components/schemas/AlertRule'}}
+        next_cursor: {type: [string, 'null']}
+    ScheduleValidation:
+      type: object
+      required: [valid, errors]
+      properties:
+        valid: {type: boolean}
+        kind_detected: {type: string}
+        canonical: {type: string}
+        description: {type: string}
+        errors: {type: array, items: {type: object, required: [message]}}
+    SchedulePreview:
+      type: object
+      required: [kind_detected, canonical, description, timezone, next]
+      properties:
+        kind_detected: {type: string}
+        canonical: {type: string}
+        description: {type: string}
+        timezone: {type: string}
+        next: {type: array, items: {type: string, format: date-time}}
+    Readiness:
+      type: object
+      required: [sqlite_writable, queue, dispatcher]
+      properties:
+        sqlite_writable: {type: boolean}
+        queue: {type: boolean, description: The SQLite queue file is readable.}
+        dispatcher: {type: string}
+    Version:
+      type: object
+      required: [version, commit, edition]
+      properties:
+        version: {type: string}
+        commit: {type: string}
+        edition: {type: string}
+paths:
+  /api/v1/alert-channels:
+    get:
+      operationId: listAlertChannel
+      summary: listAlertChannel
+      parameters:
+        - {$ref: '#/components/parameters/cursor'}
+        - {$ref: '#/components/parameters/limit'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AlertChannelPage'}
+        '501': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createAlertChannel
+      summary: createAlertChannel
+      parameters:
+        - {$ref: '#/components/parameters/idempotency'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AlertChannelInput'}
+      responses:
+        '201':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AlertChannel'}
+        '501': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/alert-channels/verify:
+    get:
+      operationId: verifyAlertChannel
+      summary: Verify an email address using its signed link
+      security: []
+      parameters:
+        - {in: query, name: token, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Address verified
+          content:
+            application/json:
+              schema: {type: object, required: [status], properties: {status: {type: string}}}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/alert-channels/{id}/verify:
+    post:
+      operationId: resendAlertVerification
+      summary: Resend email verification links
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      responses:
+        '204': {description: Verification queued}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/alert-channels/{id}:
+    get:
+      operationId: getAlertChannel
+      summary: Get an alert channel
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      responses:
+        '200':
+          description: Alert channel
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AlertChannel'}
+        default: {$ref: '#/components/responses/Error'}
+    patch:
+      operationId: updateAlertChannel
+      summary: updateAlertChannel
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AlertChannelInput'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AlertChannel'}
+        '501': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: deleteAlertChannel
+      summary: deleteAlertChannel
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      responses:
+        '204':
+          description: Successful response.
+        '501': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/alert-channels/{id}/test:
+    post:
+      operationId: testAlertChannel
+      summary: testAlertChannel
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+        - {$ref: '#/components/parameters/idempotency'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AlertChannelTestResult'}
+        '501': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/alert-rules:
+    get:
+      operationId: listAlertRule
+      summary: listAlertRule
+      parameters:
+        - {$ref: '#/components/parameters/cursor'}
+        - {$ref: '#/components/parameters/limit'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AlertRulePage'}
+        '501': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createAlertRule
+      summary: createAlertRule
+      parameters:
+        - {$ref: '#/components/parameters/idempotency'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AlertRuleInput'}
+      responses:
+        '201':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AlertRule'}
+        '501': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/alert-rules/{id}:
+    get:
+      operationId: getAlertRule
+      summary: Get an alert rule
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      responses:
+        '200':
+          description: Alert rule
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AlertRule'}
+        default: {$ref: '#/components/responses/Error'}
+    patch:
+      operationId: updateAlertRule
+      summary: updateAlertRule
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AlertRuleInput'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AlertRule'}
+        '501': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: deleteAlertRule
+      summary: deleteAlertRule
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      responses:
+        '204':
+          description: Successful response.
+        '501': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/api-keys:
+    get:
+      operationId: listAPIKeys
+      summary: listAPIKeys
+      parameters:
+        - {$ref: '#/components/parameters/cursor'}
+        - {$ref: '#/components/parameters/limit'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/KeyPage'}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createAPIKey
+      summary: createAPIKey
+      parameters:
+        - {$ref: '#/components/parameters/idempotency'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/KeyInput'}
+      responses:
+        '201':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Key'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/api-keys/{id}:
+    delete:
+      operationId: revokeAPIKey
+      summary: revokeAPIKey
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      responses:
+        '204':
+          description: Successful response.
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/audit-log:
+    get:
+      operationId: listAuditLog
+      summary: listAuditLog
+      parameters:
+        - {$ref: '#/components/parameters/cursor'}
+        - {$ref: '#/components/parameters/limit'}
+        - {$ref: '#/components/parameters/action'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuditPage'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/features:
+    get:
+      operationId: getFeatures
+      summary: getFeatures
+      security: []
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Features'}
+        '429': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/jobs:
+    get:
+      operationId: listJobs
+      summary: listJobs
+      parameters:
+        - {$ref: '#/components/parameters/cursor'}
+        - {$ref: '#/components/parameters/limit'}
+        - {$ref: '#/components/parameters/jobState'}
+        - {$ref: '#/components/parameters/tag'}
+        - {$ref: '#/components/parameters/search'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/JobPage'}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createJob
+      summary: createJob
+      parameters:
+        - {$ref: '#/components/parameters/idempotency'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/JobCreate'}
+      responses:
+        '201':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Job'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/jobs/test:
+    post:
+      operationId: testUnsavedJob
+      summary: testUnsavedJob
+      parameters:
+        - {$ref: '#/components/parameters/idempotency'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/JobCreate'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TestResult'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/jobs/{id}:
+    get:
+      operationId: getJob
+      summary: getJob
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Job'}
+        default: {$ref: '#/components/responses/Error'}
+    patch:
+      operationId: updateJob
+      summary: updateJob
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/JobInput'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Job'}
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: deleteJob
+      summary: deleteJob
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      responses:
+        '204':
+          description: Successful response.
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/jobs/{id}/enable:
+    post:
+      operationId: enableJob
+      summary: enableJob
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+        - {$ref: '#/components/parameters/idempotency'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Job'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/jobs/{id}/pause:
+    post:
+      operationId: pauseJob
+      summary: pauseJob
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+        - {$ref: '#/components/parameters/idempotency'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Job'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/jobs/{id}/resume:
+    post:
+      operationId: resumeJob
+      summary: resumeJob
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+        - {$ref: '#/components/parameters/idempotency'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Job'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/jobs/{id}/rotate-signing-secret:
+    post:
+      operationId: rotateSigningSecret
+      summary: rotateSigningSecret
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+        - {$ref: '#/components/parameters/idempotency'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SigningSecret'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/jobs/{id}/runs:
+    get:
+      operationId: listJobRuns
+      summary: listJobRuns
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+        - {$ref: '#/components/parameters/cursor'}
+        - {$ref: '#/components/parameters/limit'}
+        - {$ref: '#/components/parameters/runStatus'}
+        - {$ref: '#/components/parameters/runTrigger'}
+        - {$ref: '#/components/parameters/slaBreached'}
+        - {$ref: '#/components/parameters/from'}
+        - {$ref: '#/components/parameters/to'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RunPage'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/jobs/{id}/test:
+    post:
+      operationId: testJob
+      summary: testJob
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+        - {$ref: '#/components/parameters/idempotency'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TestResult'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/jobs/{id}/trigger:
+    post:
+      operationId: triggerJob
+      summary: triggerJob
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+        - {$ref: '#/components/parameters/idempotency'}
+      responses:
+        '202':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Trigger'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/me:
+    get:
+      operationId: getMe
+      summary: getMe
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Me'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/openapi.yaml:
+    get:
+      operationId: getOpenAPI
+      summary: getOpenAPI
+      security: []
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/yaml:
+              schema: {type: object, required: [openapi, info, paths]}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/runs:
+    get:
+      operationId: listRuns
+      summary: listRuns
+      parameters:
+        - {$ref: '#/components/parameters/cursor'}
+        - {$ref: '#/components/parameters/limit'}
+        - {$ref: '#/components/parameters/jobId'}
+        - {$ref: '#/components/parameters/tag'}
+        - {$ref: '#/components/parameters/runStatus'}
+        - {$ref: '#/components/parameters/runTrigger'}
+        - {$ref: '#/components/parameters/slaBreached'}
+        - {$ref: '#/components/parameters/from'}
+        - {$ref: '#/components/parameters/to'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RunPage'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/runs/{id}:
+    get:
+      operationId: getRun
+      summary: getRun
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RunDetail'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/runs/{id}/retry:
+    post:
+      operationId: retryRun
+      summary: retryRun
+      parameters:
+        - {$ref: '#/components/parameters/id'}
+        - {$ref: '#/components/parameters/idempotency'}
+      responses:
+        '202':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Run'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/schedules/preview:
+    post:
+      operationId: previewSchedule
+      summary: previewSchedule
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ScheduleInput'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SchedulePreview'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/schedules/validate:
+    post:
+      operationId: validateSchedule
+      summary: validateSchedule
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ScheduleInput'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ScheduleValidation'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/secrets:
+    get:
+      operationId: listSecrets
+      summary: listSecrets
+      parameters:
+        - {$ref: '#/components/parameters/cursor'}
+        - {$ref: '#/components/parameters/limit'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SecretPage'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/secrets/{name}:
+    put:
+      operationId: putSecret
+      summary: putSecret
+      parameters:
+        - {$ref: '#/components/parameters/name'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SecretInput'}
+      responses:
+        '204':
+          description: Successful response.
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: deleteSecret
+      summary: deleteSecret
+      parameters:
+        - {$ref: '#/components/parameters/name'}
+      responses:
+        '204':
+          description: Successful response.
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/usage:
+    get:
+      operationId: getUsage
+      summary: Current UTC calendar month usage and effective limits
+      responses:
+        '200':
+          description: Numeric limit 0 means unlimited.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [month, runs, limit, over_quota_policy, reset_at]
+                properties:
+                  month: {type: string, pattern: '^\d{4}-\d{2}$'}
+                  runs: {type: integer, format: int64, minimum: 0}
+                  limit: {type: integer, minimum: 0}
+                  over_quota_policy: {type: string, enum: [block, allow]}
+                  reset_at: {type: string, format: date-time}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/stats/overview:
+    get:
+      operationId: getStatsOverview
+      summary: getStatsOverview
+      parameters:
+        - {$ref: '#/components/parameters/window'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Stats'}
+        default: {$ref: '#/components/responses/Error'}
+  /api/v1/workspaces/{ws}:
+    get:
+      operationId: getWorkspace
+      summary: getWorkspace
+      parameters:
+        - {$ref: '#/components/parameters/ws'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Workspace'}
+        default: {$ref: '#/components/responses/Error'}
+    patch:
+      operationId: patchWorkspace
+      summary: patchWorkspace
+      parameters:
+        - {$ref: '#/components/parameters/ws'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WorkspacePatch'}
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Workspace'}
+        default: {$ref: '#/components/responses/Error'}
+  /auth/dev/login:
+    post:
+      operationId: devLogin
+      summary: devLogin
+      security: []
+      responses:
+        '204':
+          description: Successful response.
+        default: {$ref: '#/components/responses/Error'}
+  /auth/sso:
+    get:
+      operationId: discoverSSO
+      summary: Discover a workspace login provider by email
+      security: []
+      parameters:
+        - in: query
+          name: email
+          schema: {type: string}
+      responses:
+        '302':
+          description: Redirect to the discovered provider login.
+        default: {$ref: '#/components/responses/Error'}
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: logout
+      responses:
+        '204':
+          description: Successful response.
+        default: {$ref: '#/components/responses/Error'}
+  /auth/{provider}/callback:
+    get:
+      operationId: completeOAuth
+      summary: completeOAuth
+      security: []
+      parameters:
+        - {$ref: '#/components/parameters/provider'}
+      responses:
+        '302':
+          description: Successful response.
+        '303':
+          description: "Sign-in refused by policy; redirects to /login?error=signup_closed or /login?error=domain_not_allowed."
+        default: {$ref: '#/components/responses/Error'}
+  /auth/{provider}/login:
+    get:
+      operationId: beginOAuth
+      summary: beginOAuth
+      security: []
+      parameters:
+        - {$ref: '#/components/parameters/provider'}
+      responses:
+        '302':
+          description: Successful response.
+        default: {$ref: '#/components/responses/Error'}
+  /healthz:
+    get:
+      operationId: getHealth
+      summary: getHealth
+      security: []
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            text/plain:
+              schema: {type: string}
+        default: {$ref: '#/components/responses/Error'}
+  /readyz:
+    get:
+      operationId: getReadiness
+      summary: getReadiness
+      security: []
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Readiness'}
+        '503':
+          description: Dependencies not ready.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Readiness'}
+        default: {$ref: '#/components/responses/Error'}
+  /version:
+    get:
+      operationId: getVersion
+      summary: getVersion
+      security: []
+      responses:
+        '200':
+          description: Successful response.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Version'}
+        default: {$ref: '#/components/responses/Error'}

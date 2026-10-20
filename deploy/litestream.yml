@@ -1,0 +1,17 @@
+# Pinned to Litestream 0.3.13 (the binary copied by Dockerfile).
+# The entrypoint sets these from cronpad's logging.format and logging.level, so both
+# processes write the same format to the container's stdout.
+logging:
+  type: ${LITESTREAM_LOG_TYPE}
+  level: ${LITESTREAM_LOG_LEVEL}
+dbs:
+  - path: ${CRONPAD_DATABASE__PATH}
+    replicas:
+      - url: ${LITESTREAM_REPLICA_URL}/control
+        endpoint: ${LITESTREAM_ENDPOINT}
+        force-path-style: true
+  - path: ${CRONPAD_DATABASE__HISTORY_PATH}
+    replicas:
+      - url: ${LITESTREAM_REPLICA_URL}/history
+        endpoint: ${LITESTREAM_ENDPOINT}
+        force-path-style: true

@@ -1,0 +1,15 @@
+.git
+bin
+data
+cronpad.toml
+cronpad-docs.zip
+.DS_Store
+node_modules
+**/node_modules
+web/dist
+
+# Local implementation plans and agent state
+[Pp][Ll][Aa][Nn]*.[Mm][Dd]
+**/[Pp][Ll][Aa][Nn]*.[Mm][Dd]
+.claude
+.orca-reports

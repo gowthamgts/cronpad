@@ -1,0 +1,106 @@
+version: "2"
+run:
+  timeout: 5m
+  relative-path-mode: gomod
+  tests: true
+linters:
+  default: standard
+  # Keep the standard correctness checks; avoid contributor-facing style quotas.
+  enable:
+    - asasalint
+    - bidichk
+    - bodyclose
+    - contextcheck
+    - depguard
+    - errorlint
+    - fatcontext
+    - gocheckcompilerdirectives
+    - gosec
+    - makezero
+    - nilerr
+    - nilnesserr
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - revive
+    - sloglint
+  settings:
+    # Use actionable security checks, not blanket audits of intentional command
+    # execution, operator-supplied file paths, SQL identifiers, or retry jitter.
+    # Revisit this allow-list when updating the pinned golangci-lint version.
+    gosec:
+      includes:
+        - G106 # SSH host-key verification
+        - G108 # publicly exposed pprof
+        - G109 # narrowing Atoi results
+        - G110 # unbounded decompression
+        - G111 # serving the filesystem root
+        - G112 # HTTP header timeouts
+        - G114 # HTTP servers without timeouts
+        - G201 # formatted SQL
+        - G203 # unescaped HTML
+        - G301 # directory permissions
+        - G303 # predictable temporary files
+        - G305 # archive path traversal
+        - G307 # default file permissions
+        - G401 # weak cryptographic hashes
+        - G402 # unsafe TLS settings
+        - G403 # weak RSA keys
+        - G405 # DES/RC4
+        - G406 # MD4/RIPEMD160
+        - G501 # crypto/md5
+        - G502 # crypto/des
+        - G503 # crypto/rc4
+        - G504 # net/http/cgi
+        - G505 # crypto/sha1
+        - G506 # x/crypto/md4
+        - G507 # x/crypto/ripemd160
+    revive:
+      # Enforce context API conventions without enabling unrelated style rules.
+      rules:
+        - name: context-as-argument
+        - name: context-keys-type
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    sloglint:
+      context: all
+      kv-only: true
+      key-naming-case: snake
+      static-msg: true
+      # Prevent application attributes from overwriting slog's envelope.
+      forbidden-keys:
+        - time
+        - level
+        - msg
+        - source
+    depguard:
+      rules:
+        public-edition:
+          files:
+            - '$all'
+          deny:
+            - pkg: github.com/gowthamgts/cronpad-ee
+              desc: private downstream code must stay out of the public repository
+            - pkg: github.com/gowthamgts/cronpad-cloud
+              desc: private downstream code must stay out of the public repository
+        internal:
+          files:
+            - '**/internal/**/*.go'
+          deny:
+            - pkg: github.com/gowthamgts/cronpad/examples
+              desc: internal packages must not depend on example extensions
+  exclusions:
+    generated: strict
+    warn-unused: true
+issues:
+  # Report the full baseline in CI, not just the first few copies of a problem.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/gowthamgts/cronpad

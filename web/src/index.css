@@ -1,0 +1,111 @@
+@import "tailwindcss";
+/* Tokens, Maple Mono, base styles and the shared component classes (.box, .box-title, .btn, .field, .link,
+   .marker, .graph, …) come from the shared design system; change them there, not here. */
+@import "@cronpad/design";
+/* Utilities used by the shared schedule controls live outside web/, so Tailwind has to be pointed at them. */
+@source "../packages/schedule/src";
+
+/*
+ * Dashboard extensions on top of @cronpad/design.
+ */
+
+/* shadcn-style aliases so the ui/ components keep working; prefer the brand names in new code. */
+:root {
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --muted: var(--sunken);
+  --muted-foreground: var(--ink-soft);
+  --border: var(--line);
+  --input: var(--ink);
+  --ring: var(--focus);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-ink);
+  --secondary: var(--surface);
+  --secondary-foreground: var(--ink);
+  --destructive: var(--danger);
+  --destructive-foreground: 45 45% 99%;
+  --danger-soft: var(--bad-soft);
+  --success: var(--link);
+  --success-soft: var(--ok-soft);
+  --warning: 32 90% 26%;
+  --warning-soft: var(--warn-soft);
+  --chart-success: var(--accent);
+  --chart-failure: var(--failure);
+  --chart-other: var(--line);
+  --chart-skipped: 38 85% 58%;
+}
+.dark {
+  --destructive-foreground: 160 35% 7%;
+  --success: 75 85% 62%;
+  --warning: 40 92% 64%;
+  --chart-other: 160 12% 30%;
+  --chart-skipped: 40 70% 48%;
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-danger-soft: hsl(var(--danger-soft));
+  --color-success: hsl(var(--success));
+  --color-success-soft: hsl(var(--success-soft));
+  --color-warning: hsl(var(--warning));
+  --color-warning-soft: hsl(var(--warning-soft));
+  --color-chart-success: hsl(var(--chart-success));
+  --color-chart-failure: hsl(var(--chart-failure));
+  --color-chart-other: hsl(var(--chart-other));
+  --color-chart-skipped: hsl(var(--chart-skipped));
+  --color-accent-foreground: hsl(var(--accent-ink));
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+  --shadow-hard: 4px 4px 0 hsl(var(--ink));
+  --shadow-hard-sm: 3px 3px 0 hsl(var(--ink));
+}
+
+@layer base {
+  /* v3 behaviour the ui/ components rely on: hairline borders by default. */
+  *, ::after, ::before, ::backdrop, ::file-selector-button { border-color: hsl(var(--border)); }
+  /* The dashboard is denser than the site: 14px body text. */
+  body { @apply min-h-screen text-sm; }
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
+  input, select, textarea { color-scheme: light; }
+  .dark input, .dark select, .dark textarea { color-scheme: dark; }
+}
+
+@layer components {
+  /* Compact buttons: 40px on phones, 32px from sm up (the site uses 44/36). */
+  .btn { @apply min-h-10 whitespace-nowrap px-3.5 sm:min-h-8 sm:px-3; }
+
+  /* Cards with a tab label need room above for the tab. */
+  .box:has(> .box-title, > * > .box-title) { @apply mt-7; }
+  /* Boxes nested in a box sit flat. */
+  .box .box { box-shadow: none; }
+
+  /* Section heading inside a card or list: `// title`, slashes in the signal colour. */
+  .section-title { @apply text-xs font-bold lowercase tracking-wide text-ink; }
+  .section-title::before { content: "// "; color: hsl(var(--link)); }
+
+  .band { @apply bg-band text-band-ink; }
+
+  .usage-ruler { background-image: repeating-linear-gradient(90deg, transparent, transparent calc(10% - 1px), hsl(var(--ink) / 0.3) calc(10% - 1px), hsl(var(--ink) / 0.3) 10%); }
+  /* Wide tables scroll inside this wrapper; the page never scrolls sideways. */
+  .table-scroll { @apply w-full max-w-full overflow-x-auto; }
+  /* A table that already sits in a box keeps the box's border only. */
+  .box > .table-scroll { @apply border-0; }
+  /* Empty states nested in a card read as a dashed well, not a second card. */
+  .box .box.empty-state { @apply bg-paper; }
+}

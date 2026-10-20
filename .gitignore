@@ -1,0 +1,19 @@
+.DS_Store
+cronpad-docs.zip
+/bin/
+/data/
+/cronpad.toml
+/coverage.out
+
+# dashboard build output (web/dist/.gitkeep keeps go:embed compiling without Node)
+/web/dist/*
+!/web/dist/.gitkeep
+node_modules/
+
+/dist/
+
+# Implementation plans (local only, at any directory depth)
+[Pp][Ll][Aa][Nn]*.[Mm][Dd]
+
+# Orchestration notes, worker reports and logs (local only)
+.orca-reports/

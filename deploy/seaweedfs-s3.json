@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "cronpad-demo",
+      "credentials": [{ "accessKey": "cronpad-demo", "secretKey": "cronpad-demo-local-only" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

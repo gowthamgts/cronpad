@@ -1,0 +1,16 @@
+{
+  "name": "@cronpad/schedule",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Schedule syntax modes, presets, lossless-or-warn conversion between natural, cron, Quartz and RRULE, and the editor controls built on them. Shared by the dashboard and the website.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "files": ["src"],
+  "exports": {
+    ".": "./src/index.ts",
+    "./ui": "./src/ui.tsx",
+    "./fixtures": "./src/fixtures.ts"
+  },
+  "peerDependencies": { "react": "^19.0.0" },
+  "devDependencies": { "@types/react": "^19.0.0", "react": "^19.3.1" }
+}

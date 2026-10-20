@@ -1,0 +1,191 @@
+/*
+ * @cronpad/design: the shared cronpad design system for the site (cronpad-web) and the dashboard (cronpad/web).
+ * Tokens, fonts, base styles and component classes live here; each app adds only its own extensions.
+ *
+ * Usage (Tailwind v4), after `@import "tailwindcss";`:
+ *   @import "@cronpad/design";
+ */
+
+/* Maple Mono 400/500/700 (no italic), subset to Latin-1, Latin Extended-A, punctuation, arrows, box drawing
+   and the symbols the apps use; other glyphs fall back to the system mono. Files are external: both apps'
+   CSPs allow font-src 'self'. */
+@font-face {
+  font-family: "Maple Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/maple-mono-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Maple Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./fonts/maple-mono-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Maple Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./fonts/maple-mono-700.woff2") format("woff2");
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * cronpad design language: monospace everywhere, warm notebook paper, a deep
+ * "night shift" green band for headers and heroes, and one electric-lime signal
+ * colour for actions and on-time states. Boxes carry a hard offset shadow and a
+ * filled tab label. Tokens are HSL triplets; .dark swaps them.
+ */
+:root {
+  --paper: 45 30% 96%;         /* page: warm notebook paper */
+  --surface: 45 45% 99%;       /* boxes */
+  --sunken: 44 24% 91%;        /* zebra rows, code */
+  --ink: 160 30% 8%;           /* text, borders, shadows */
+  --ink-soft: 160 8% 30%;      /* secondary text (AA on paper) */
+  --line: 45 14% 80%;          /* hairlines */
+  --band: 45 30% 96%;          /* hero / header band: same notebook paper, set off by the grid */
+  --band-ink: 160 30% 8%;
+  --band-soft: 160 8% 30%;
+  --band-line: 45 14% 87%;
+  --band-shadow: 160 30% 8%;   /* hard shadow on boxes inside a band */
+  --accent: 75 90% 58%;        /* signal lime */
+  --accent-fg: 166 80% 22%;    /* accent as text colour: deep teal on paper, lime in dark */
+  --accent-ink: 160 35% 7%;    /* text on lime */
+  --link: 166 80% 22%;         /* deep teal links on paper (AA) */
+  --danger: 355 74% 44%;
+  --warn-soft: 40 90% 88%;
+  --ok-soft: 75 70% 86%;
+  --bad-soft: 355 80% 94%;
+  --focus: 200 95% 42%;
+  /* Run status chips (same in both themes): 3xx redirect blue, 4xx/5xx failure coral. */
+  --redirect: 205 95% 72%;
+  --redirect-ink: 210 80% 12%;
+  --failure: 6 100% 68%;
+  --failure-ink: 6 70% 6%;
+}
+.dark {
+  color-scheme: dark;
+  --paper: 160 25% 5%;
+  --surface: 160 20% 8%;
+  --sunken: 160 16% 11%;
+  --ink: 60 15% 92%;
+  --ink-soft: 80 6% 68%;
+  --line: 160 12% 20%;
+  --band: 160 35% 3%;
+  --band-ink: 60 20% 94%;
+  --band-soft: 90 8% 70%;
+  --band-line: 160 15% 15%;
+  --band-shadow: 75 90% 58%;
+  --accent: 75 90% 58%;
+  --accent-fg: 75 90% 58%;
+  --accent-ink: 160 35% 7%;
+  --link: 75 85% 62%;
+  --danger: 4 85% 70%;
+  --warn-soft: 36 45% 14%;
+  --ok-soft: 75 35% 14%;
+  --bad-soft: 4 40% 15%;
+  --focus: 195 95% 62%;
+}
+
+@theme inline {
+  --color-paper: hsl(var(--paper));
+  --color-surface: hsl(var(--surface));
+  --color-sunken: hsl(var(--sunken));
+  --color-ink: hsl(var(--ink));
+  --color-ink-soft: hsl(var(--ink-soft));
+  --color-line: hsl(var(--line));
+  --color-band: hsl(var(--band));
+  --color-band-ink: hsl(var(--band-ink));
+  --color-band-soft: hsl(var(--band-soft));
+  --color-band-line: hsl(var(--band-line));
+  --color-accent: hsl(var(--accent));
+  --color-accent-fg: hsl(var(--accent-fg));
+  --color-accent-ink: hsl(var(--accent-ink));
+  --color-link: hsl(var(--link));
+  --color-danger: hsl(var(--danger));
+  --color-warn-soft: hsl(var(--warn-soft));
+  --color-ok-soft: hsl(var(--ok-soft));
+  --color-bad-soft: hsl(var(--bad-soft));
+  --color-redirect: hsl(var(--redirect));
+  --color-redirect-ink: hsl(var(--redirect-ink));
+  --color-failure: hsl(var(--failure));
+  --color-failure-ink: hsl(var(--failure-ink));
+  --color-focus: hsl(var(--focus));
+  /* Slightly rounded: chips and keys 3px, controls 4px, boxes and popups 6px. */
+  --radius-sm: 3px;
+  --radius: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --font-sans: "Maple Mono", "JetBrains Mono", "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-mono: "Maple Mono", "JetBrains Mono", "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-paper text-ink font-mono text-[15px] leading-relaxed antialiased; font-variant-ligatures: none; }
+  :focus-visible { outline: 2px solid hsl(var(--focus)); outline-offset: 2px; }
+  /* Text fields and dropdown triggers draw their own flush 1px ring (.field, Combobox); the offset ring is for buttons and links. */
+  :where(input:not([type="checkbox"], [type="radio"]), textarea, [aria-haspopup="listbox"]):focus-visible { outline: none; }
+  h1, h2, h3, h4 { scroll-margin-top: var(--heading-scroll-offset, 6.5rem); text-wrap: balance; }
+  ::selection { background: hsl(var(--accent) / 0.6); color: hsl(var(--accent-ink)); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+  }
+}
+
+@layer components {
+  /* A box with a hard offset shadow, a soft gray rather than full ink. In a dark band the shadow turns lime. */
+  .box { @apply relative rounded-md border border-ink/50 bg-surface; box-shadow: 4px 4px 0 hsl(var(--ink) / 0.3); }
+  .band .box { @apply border-band-soft bg-band; box-shadow: 4px 4px 0 hsl(var(--band-shadow)); }
+  /* On dark paper the ink shadow reads lighter, so it gets its own strength. */
+  .dark .box:not(.band .box) { @apply border-ink; box-shadow: 4px 4px 0 hsl(var(--ink) / 0.28); }
+  /* A filled tab sitting on the box's top edge, like a folder label. */
+  .box-title { @apply absolute -top-px left-3 -translate-y-full rounded-t-sm bg-ink px-2 py-0.5 text-xs font-bold text-paper; }
+  .band .box-title { @apply bg-accent text-accent-ink; }
+
+  /* Buttons with a hard shadow that presses in: 44px on phones, 36px from sm up. */
+  .btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded border-[1.5px] border-ink/50 px-5 text-sm sm:min-h-9 sm:px-3 font-bold no-underline select-none;
+    box-shadow: 3px 3px 0 hsl(var(--ink) / 0.3);
+    transition: transform 80ms, box-shadow 80ms;
+  }
+  /* Buttons cast their shadow down-right, like boxes. Hover lifts up and to the left (the shadow stays put); pressing sinks into the shadow. */
+  .btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 hsl(var(--ink) / 0.3); }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 hsl(var(--ink) / 0.3); }
+  .dark .btn:not(.band .btn) { @apply border-ink; box-shadow: 3px 3px 0 hsl(var(--ink) / 0.35); }
+  .dark .btn:not(.band .btn):hover { box-shadow: 4px 4px 0 hsl(var(--ink) / 0.35); }
+  .dark .btn:not(.band .btn):active { box-shadow: none; }
+  .btn-primary { @apply bg-accent text-accent-ink; }
+  .btn-secondary { @apply bg-surface text-ink; }
+  .band .btn { @apply border-band-ink; box-shadow: 3px 3px 0 hsl(var(--band-soft) / 0.5); }
+  .band .btn:hover { box-shadow: 4px 4px 0 hsl(var(--band-soft) / 0.5); }
+  .band .btn:active { box-shadow: none; }
+  .band .btn-secondary { @apply bg-band text-band-ink; }
+
+  /* Text field: 44px on phones (16px text stops iOS zoom), 36px from sm up; focus is a flush 1px ring. */
+  .field {
+    @apply min-h-11 w-full rounded border border-ink/40 bg-paper px-3 py-2 font-mono text-base hover:border-ink/70 sm:min-h-9 sm:py-1 sm:text-sm;
+  }
+  .field:focus-visible { @apply border-focus ring-1 ring-focus ring-offset-0; }
+
+  .link { @apply text-link underline decoration-1 underline-offset-4 hover:decoration-2; }
+  .eyebrow { @apply text-xs font-bold tracking-widest uppercase text-ink-soft; }
+  /* Section marker: "// label" in the signal colour. */
+  .marker { @apply text-xs font-bold tracking-widest uppercase; }
+  .marker::before { content: "// "; color: hsl(var(--link)); }
+  .band .marker::before { color: hsl(var(--accent-fg)); }
+
+  /* Faint notebook grid for hero bands. */
+  .graph {
+    background-image:
+      linear-gradient(hsl(var(--band-line)) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--band-line)) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: -1px -1px;
+  }
+  .live-dot { @apply inline-block size-2 rounded-full bg-accent; animation: live 1.6s ease-in-out infinite; }
+  @keyframes live { 50% { opacity: 0.25; } }
+}

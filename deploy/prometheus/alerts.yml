@@ -1,0 +1,28 @@
+groups:
+  - name: cronpad
+    rules:
+      - alert: CronpadFallingBehind
+        expr: cronpad_queue_oldest_due_age_milliseconds > 30000
+        for: 2m
+        labels:
+          severity: warning
+      - alert: CronpadWorkersDying
+        expr: increase(cronpad_leases_expired_total[10m]) > 0
+        labels:
+          severity: warning
+      - alert: CronpadSLABreaches
+        expr: sum(rate(cronpad_runs_sla_breached_total[15m])) / sum(rate(cronpad_runs_total[15m])) > 0.01
+        for: 15m
+        labels:
+          severity: warning
+      - alert: CronpadNotDispatching
+        expr: max(cronpad_dispatcher_lock_held) == 0
+        for: 1m
+        labels:
+          severity: critical
+      # A blackbox exporter probes the API /readyz endpoint with module http_2xx.
+      - alert: CronpadNotReady
+        expr: probe_success{job="cronpad-readyz"} == 0
+        for: 1m
+        labels:
+          severity: critical

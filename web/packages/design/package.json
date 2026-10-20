@@ -1,0 +1,15 @@
+{
+  "name": "@cronpad/design",
+  "version": "0.1.0",
+  "private": true,
+  "description": "cronpad design system: tokens, fonts and component classes shared by the site and the dashboard (Tailwind v4).",
+  "license": "AGPL-3.0-only",
+  "files": ["design.css", "fonts"],
+  "exports": {
+    ".": { "style": "./design.css", "default": "./design.css" },
+    "./design.css": "./design.css",
+    "./fonts/*": "./fonts/*"
+  },
+  "style": "./design.css",
+  "peerDependencies": { "tailwindcss": "^4.3.3" }
+}

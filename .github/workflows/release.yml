@@ -1,0 +1,49 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+  packages: write
+jobs:
+  binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: {fetch-depth: 0}
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with: {go-version-file: go.mod}
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
+        with: {version: 12.8.1}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: 24}
+      - run: cargo install just --version 1.58.0 --locked
+      - run: just release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Set up buildx and QEMU
+        run: |
+          docker run --privileged --rm tonistiigi/binfmt:qemu-v9.2.2 --install arm64
+          docker buildx create --use
+      - name: Login
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Build and push
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          version="${GITHUB_REF_NAME#v}"
+          tags="-t $image:$version"
+          case "$version" in
+            *-*) ;; # pre-release: only the exact version tag
+            *) tags="$tags -t $image:${version%%.*} -t $image:latest" ;;
+          esac
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            --build-arg VERSION="${GITHUB_REF_NAME#v}" --build-arg COMMIT="$GITHUB_SHA" \
+            --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -f deploy/Dockerfile $tags \
+            --provenance=true --sbom=true --push .

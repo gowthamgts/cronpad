@@ -1,0 +1,155 @@
+mode = "selfhosted"            # "selfhosted" | "hosted" — hosted flips safe defaults for a public, multi-tenant server
+
+[server]
+addr = ":8080"                          # where the process listens (bind address)
+public_url = "http://localhost:8080"    # how users reach it from outside, e.g. "https://cron.example.com" behind a reverse proxy.
+                                        # Used for OAuth callbacks, links in alert emails, canonical/OG URLs and Secure cookies.
+                                        # If empty, derived from `addr` (only sensible for local dev).
+read_timeout = "15s"
+write_timeout = "30s"
+shutdown_grace = "30s"
+trusted_proxies = []           # CIDRs for X-Forwarded-For
+
+[ui]
+# One binary, one port, one entry point. These flags only decide which routes the binary mounts.
+dashboard = true               # false = API-only: the dashboard at / is not mounted; /api, /auth, /mcp, /healthz keep working
+cors_origins = []              # exact origins (e.g. "https://cronpad.com") allowed to call /api/ from a browser; no cookies
+# Landing page and docs are a separate site; list its origin in cors_origins if it embeds the schedule preview.
+
+[database]
+path = "./data/cronpad.db"             # control DB: users, workspaces, jobs, keys, secrets, alert config (small, critical)
+history_path = "./data/history.db"     # history DB: runs, attempts, audit log, alert outbox, stats (large, prunable)
+busy_timeout = "5s"
+run_migrations = true
+
+[queue]
+# The delivery queue is a rebuildable SQLite index of what is due next; the databases above stay the source of truth.
+path = ""                              # empty = <name>-queue.db beside database.path. Rebuilt at startup; never back it up
+
+[scheduler]
+# DECISION: 0 = group commit (an idle writer commits at once; batches grow with load).
+# A positive linger (1ms through 1s) instead waits for a fixed ticker to grow batches.
+results_flush_interval = "0s"
+results_max_batch = 500         # 1 through 10000 commands
+delivery_mode = "durable"       # durable | fast (requires receiver idempotency)
+tick_interval = "100ms"         # dispatcher poll interval
+claim_batch = 500               # max occurrences claimed per tick
+lease_duration = "60s"          # in-flight lease; renewed every lease/3 while a sink runs, so it only expires for stuck/crashed workers
+reaper_interval = "5s"
+lock_ttl = "15s"                # dispatcher lock; renewed every lock_ttl/3
+reconcile_interval = "10s"      # overdue check for lost queue entries: a cheap indexed query
+overdue_grace = "30s"           # an active job this far past next_run_at with no queue entry gets repaired
+full_reconcile_interval = "6h"  # full database<->queue sweep (also at startup and when queue data loss is detected)
+sla_threshold = "5s"            # start lag beyond this = SLA breach
+default_misfire_policy = "fire_once"   # fire_once | skip | fire_all
+misfire_fire_all_cap = 10
+
+[workers]
+count = 64
+queue_size = 1024
+
+[sinks.webhook]
+per_host_rate_limit = 20        # requests/second per destination host, hosted mode only; 0 disables
+enabled = true
+default_timeout = "30s"
+max_timeout = "120s"
+max_response_bytes = 65536
+allow_private_networks = true   # forced false in hosted mode unless explicitly overridden
+user_agent = "cronpad/{version}"
+# What a new webhook job starts with. Each job stores its own copy, so changing these never alters existing jobs.
+# Entries are status codes (100-599) or classes (1xx-5xx); retry_on also takes "network" and "timeout".
+success_codes = ["2xx"]
+retry_on = ["5xx", "408", "429", "network", "timeout"]
+
+[sinks.command]
+enabled = true                  # forced false in hosted mode
+shell = "/bin/sh"
+allowed_commands = []           # empty = any (selfhosted only); else allowlist of executables
+default_timeout = "60s"
+max_output_bytes = 65536
+env_passthrough = []
+# What a new command job starts with (exit codes 0-255). Each job stores its own copy.
+success_exit_codes = [0]
+retry_exit_codes = []
+
+[retry.defaults]
+max_attempts = 3
+backoff = "exponential"         # fixed | exponential
+initial_interval = "10s"
+max_interval = "10m"
+multiplier = 2.0
+jitter = 0.2
+
+[auto_disable]
+enabled = true
+consecutive_failures = 20       # failed runs (after retries) in a row → disable job
+notify = true
+
+[limits]                         # 0 = unlimited. Hosted mode fills in finite defaults for anything not set here.
+max_jobs_per_workspace = 0
+min_interval = "1s"              # smallest allowed gap between occurrences
+max_runs_per_month_per_workspace = 0
+over_quota = "block"
+max_concurrent_runs_per_workspace = 0
+max_alert_emails_per_day = 0
+max_api_keys_per_workspace = 0
+max_retry_attempts = 0           # 0 = unlimited; hosted default 10
+api_rate_limit_per_minute = 600
+
+[retention]                      # the janitor prunes history tables. "0" = keep forever.
+runs = "30d"                     # runs and their attempts
+attempt_bodies = "7d"            # response bodies / command output only
+store_success_bodies = false     # false: keep bodies/output only for failed attempts; true: for every attempt
+audit_log = "30d"
+alert_outbox = "30d"             # sent/failed/suppressed only; pending rows are never pruned
+job_stats_daily = "400d"
+janitor_interval = "5m"
+janitor_batch = 1000
+
+[auth]
+session_lifetime = "720h"
+allowed_email_domains = []       # optional restriction for self-hosted
+allow_signup = false             # true: anyone who can sign in gets an account; the first user always can. Hosted mode defaults to true
+dev_login = false                # local-only username login for development; never on a reachable server
+[auth.google]
+client_id = ""
+client_secret = ""
+[auth.github]
+client_id = ""
+client_secret = ""
+
+[auth.oidc]
+issuer = ""
+client_id = ""
+client_secret = ""
+display_name = "SSO"
+scopes = ["openid", "email", "profile"]
+require_email_verified = true
+
+[secrets]
+encryption_key = ""              # 32-byte base64; required if secrets are used. Env override recommended.
+
+[alerts.email]
+enabled = false
+smtp_host = ""
+smtp_port = 587
+username = ""
+password = ""
+from = "cronpad <alerts@example.com>"
+
+[telemetry]
+service_name = "cronpad"
+otlp_endpoint = ""               # empty = disabled
+otlp_protocol = "grpc"           # grpc | http
+prometheus_addr = ""             # e.g. ":9090" to expose /metrics
+traces_sample_ratio = 0.1
+otlp_logs = false                # also export logs via OTLP (otelslog bridge)
+
+[logging]
+level = "info"                   # debug | info | warn | error
+format = "json"                  # json | logfmt
+add_source = false               # include file:line
+
+[mcp]
+enabled = true
+path = "/mcp"

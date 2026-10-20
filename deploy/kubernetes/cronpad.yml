@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cronpad-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cronpad
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: cronpad}
+  template:
+    metadata:
+      labels: {app: cronpad}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: cronpad
+          image: ghcr.io/gowthamgts/cronpad:1
+          ports:
+            - {name: http, containerPort: 8080}
+          envFrom:
+            - secretRef: {name: cronpad-env}
+          env:
+            - {name: CRONPAD_DATABASE__PATH, value: /data/cronpad.db}
+            - {name: CRONPAD_DATABASE__HISTORY_PATH, value: /data/history.db}
+            - {name: CRONPAD_SINKS__COMMAND__ENABLED, value: 'false'}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+          startupProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 5
+            failureThreshold: 120
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          resources:
+            requests: {cpu: '1', memory: 512Mi}
+            limits: {cpu: '2', memory: 2Gi}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: cronpad-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cronpad
+spec:
+  selector: {app: cronpad}
+  ports:
+    - {name: http, port: 8080, targetPort: http}

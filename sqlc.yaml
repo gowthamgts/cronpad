@@ -1,0 +1,24 @@
+version: "2"
+sql:
+  - engine: sqlite
+    schema: internal/store/migrations/control
+    queries: internal/store/queries/control
+    gen:
+      go:
+        package: sqlitegen
+        out: internal/store/sqlitegen
+        emit_prepared_queries: true
+        emit_interface: true
+        emit_json_tags: true
+        emit_empty_slices: true
+  - engine: sqlite
+    schema: internal/store/migrations/history
+    queries: internal/store/queries/history
+    gen:
+      go:
+        package: historygen
+        out: internal/store/historygen
+        emit_prepared_queries: true
+        emit_interface: true
+        emit_json_tags: true
+        emit_empty_slices: true
