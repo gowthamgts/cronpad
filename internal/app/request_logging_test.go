@@ -20,15 +20,16 @@ import (
 
 func TestRequestLogContract(t *testing.T) {
 	for _, tc := range []struct {
-		name, method, target, route string
-		status                      int
+		name, method, target, route, path string
+		status                            int
 	}{
-		{"success", "GET", "/jobs/private-id?token=query-secret", "/jobs/{id}", 201},
-		{"implicit success", "GET", "/empty", "/empty", 200},
-		{"failure", "GET", "/failure", "/failure", 503},
-		{"panic", "GET", "/panic", "/panic", 500},
-		{"unmatched", "GET", "/secret-path?token=query-secret", "<unmatched>", 404},
-		{"method not allowed", "POST", "/empty", "<unmatched>", 405},
+		{"success", "GET", "/jobs/job_1?token=query-secret", "/jobs/{id}", "/jobs/job_1", 201},
+		{"implicit success", "GET", "/empty", "/empty", "/empty", 200},
+		{"failure", "GET", "/failure", "/failure", "/failure", 503},
+		{"panic", "GET", "/panic", "/panic", "/panic", 500},
+		{"unmatched", "GET", "/favicon.ico?token=query-secret", "<unmatched>", "/favicon.ico", 404},
+		{"long path", "GET", "/" + strings.Repeat("a", 300), "<unmatched>", "/" + strings.Repeat("a", 255) + "…", 404},
+		{"method not allowed", "POST", "/empty", "<unmatched>", "/empty", 405},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var output bytes.Buffer
@@ -77,7 +78,7 @@ func TestRequestLogContract(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				for _, secret := range []string{"private-id", "query-secret", "secret-path", "header-secret"} {
+				for _, secret := range []string{"query-secret", "header-secret"} {
 					if strings.Contains(string(encoded), secret) {
 						t.Fatalf("request log leaked %q: %s", secret, encoded)
 					}
@@ -88,6 +89,9 @@ func TestRequestLogContract(t *testing.T) {
 			}
 			if completion == nil || completion[logx.Route] != tc.route || completion[logx.StatusCode] != float64(tc.status) {
 				t.Fatalf("invalid completion record: %v", completion)
+			}
+			if path, _ := completion[logx.Path].(string); path != tc.path {
+				t.Fatalf("path = %q, want %q", path, tc.path)
 			}
 			wantDuration := float64(0)
 			if tc.name == "success" {
