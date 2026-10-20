@@ -17,7 +17,7 @@ SELECT w.* FROM workspaces w JOIN workspace_members m ON m.workspace_id=w.id WHE
 -- name: WorkspaceMember :one
 SELECT role FROM workspace_members WHERE workspace_id=? AND user_id=?;
 -- name: PatchWorkspace :one
-UPDATE workspaces SET name=?,slug=? WHERE id=? RETURNING *;
+UPDATE workspaces SET name=? WHERE id=? RETURNING *;
 -- name: FindSession :one
 SELECT data FROM sessions WHERE token=? AND expiry>?;
 -- name: CommitSession :exec

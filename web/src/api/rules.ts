@@ -20,7 +20,6 @@ export const rules = {
     "runs:read"
   ],
   "workspaceNameMax": 200,
-  "workspaceSlugPattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
   "alertNameMax": 200,
   "alertEvents": [
     "run.failed",

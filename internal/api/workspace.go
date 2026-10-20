@@ -113,17 +113,18 @@ func (j *Jobs) patchWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 404, "not_found", "workspace not found", nil)
 		return
 	}
-	in := struct{ Name, Slug string }{old.Name, old.Slug}
+	// The slug is fixed at creation; unknown fields (including slug) are rejected.
+	in := struct{ Name string }{old.Name}
 	if !readInput(w, r, &in) {
 		return
 	}
-	if len(in.Name) < 1 || len(in.Name) > 200 || !regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`).MatchString(in.Slug) {
-		writeError(w, 400, "validation_failed", "invalid name or slug", nil)
+	if len(in.Name) < 1 || len(in.Name) > 200 {
+		writeError(w, 400, "validation_failed", "invalid name", nil)
 		return
 	}
-	ws, e := j.Store.Control().PatchWorkspace(r.Context(), sqlitegen.PatchWorkspaceParams{Name: in.Name, Slug: in.Slug, ID: old.ID})
+	ws, e := j.Store.Control().PatchWorkspace(r.Context(), sqlitegen.PatchWorkspaceParams{Name: in.Name, ID: old.ID})
 	if e != nil {
-		writeError(w, 409, "conflict", "workspace slug unavailable", nil)
+		writeError(w, 500, "internal", "cannot update workspace", nil)
 		return
 	}
 	writeJSON(w, 200, workspaceObject(ws))

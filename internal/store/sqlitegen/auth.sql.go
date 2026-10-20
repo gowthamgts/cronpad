@@ -473,17 +473,16 @@ func (q *Queries) ListSecrets(ctx context.Context, arg ListSecretsParams) ([]Lis
 }
 
 const patchWorkspace = `-- name: PatchWorkspace :one
-UPDATE workspaces SET name=?,slug=? WHERE id=? RETURNING id, name, slug, "plan", created_at, suspended_at, suspended_reason
+UPDATE workspaces SET name=? WHERE id=? RETURNING id, name, slug, "plan", created_at, suspended_at, suspended_reason
 `
 
 type PatchWorkspaceParams struct {
 	Name string `json:"name"`
-	Slug string `json:"slug"`
 	ID   string `json:"id"`
 }
 
 func (q *Queries) PatchWorkspace(ctx context.Context, arg PatchWorkspaceParams) (Workspace, error) {
-	row := q.queryRow(ctx, q.patchWorkspaceStmt, patchWorkspace, arg.Name, arg.Slug, arg.ID)
+	row := q.queryRow(ctx, q.patchWorkspaceStmt, patchWorkspace, arg.Name, arg.ID)
 	var i Workspace
 	err := row.Scan(
 		&i.ID,

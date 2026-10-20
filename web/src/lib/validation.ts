@@ -2,11 +2,9 @@ import { rules } from "@/api/rules";
 
 const DURATION = /^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$/;
 const SECRET_NAME = new RegExp(rules.secretNamePattern);
-const WORKSPACE_SLUG = new RegExp(rules.workspaceSlugPattern);
 
 export const isDuration = (v: string) => DURATION.test(v.trim());
 export const isSecretName = (v: string) => SECRET_NAME.test(v);
-export const isWorkspaceSlug = (v: string) => WORKSPACE_SLUG.test(v);
 
 export function isHttpUrl(v: string): boolean {
   try {
@@ -48,10 +46,9 @@ export function validateKeyName(name: string): string | null {
   return null;
 }
 
-export function validateWorkspace(name: string, slug: string): { name?: string; slug?: string } {
-  const out: { name?: string; slug?: string } = {};
+export function validateWorkspace(name: string): { name?: string } {
+  const out: { name?: string } = {};
   if (name.trim().length < 1) out.name = "Name is required";
   else if (name.trim().length > rules.workspaceNameMax) out.name = `Name must be at most ${rules.workspaceNameMax} characters`;
-  if (!isWorkspaceSlug(slug)) out.slug = "Use lowercase letters, digits, - or _ (up to 64 characters, starting with a letter or digit)";
   return out;
 }

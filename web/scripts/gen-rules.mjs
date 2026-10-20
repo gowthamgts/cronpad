@@ -29,7 +29,6 @@ const rules = {
   keyNameMax: need(schemas.KeyInput.properties.name.maxLength, "KeyInput.name.maxLength"),
   keyScopes: need(schemas.KeyInput.properties.scopes.items.enum, "KeyInput.scopes.enum"),
   workspaceNameMax: need(schemas.WorkspacePatch.properties.name.maxLength, "WorkspacePatch.name.maxLength"),
-  workspaceSlugPattern: need(schemas.WorkspacePatch.properties.slug.pattern, "WorkspacePatch.slug.pattern"),
   alertNameMax: need(schemas.AlertRuleInput.properties.name.maxLength, "AlertRuleInput.name.maxLength"),
   alertEvents: need(schemas.AlertEvent.enum, "AlertEvent.enum"),
   misfirePolicies: need(schemas.JobInput.properties.misfire_policy.enum, "misfire_policy.enum"),

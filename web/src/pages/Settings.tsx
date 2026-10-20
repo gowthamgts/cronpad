@@ -299,11 +299,10 @@ function WorkspaceSettings() {
 function WorkspaceForm({ id, initialName, initialSlug, onSaved }: { id: string; initialName: string; initialSlug: string; onSaved: () => Promise<void> }) {
   const client = useInvalidate();
   const [name, setName] = useState(initialName);
-  const [slug, setSlug] = useState(initialSlug);
-  const [errors, setErrors] = useState<{ name?: string; slug?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string }>({});
   const [saved, setSaved] = useState(false);
   const patch = useMutation({
-    mutationFn: () => call(api.PATCH("/api/v1/workspaces/{ws}", { params: { path: { ws: id } }, body: { name: name.trim(), slug } })),
+    mutationFn: () => call(api.PATCH("/api/v1/workspaces/{ws}", { params: { path: { ws: id } }, body: { name: name.trim() } })),
     onSuccess: async () => {
       setSaved(true);
       await onSaved();
@@ -313,25 +312,22 @@ function WorkspaceForm({ id, initialName, initialSlug, onSaved }: { id: string; 
   function submit(e: FormEvent) {
     e.preventDefault();
     setSaved(false);
-    const problems = validateWorkspace(name, slug);
+    const problems = validateWorkspace(name);
     setErrors(problems);
-    if (!problems.name && !problems.slug) patch.mutate();
+    if (!problems.name) patch.mutate();
   }
   return (
     <Card>
       <CardHeader>
         <CardTitle className="sr-only">Workspace</CardTitle>
         <CardDescription>
-          ID <span className="break-all font-mono">{id}</span>
+          ID <span className="break-all font-mono">{id}</span> · slug <span className="break-all font-mono">{initialSlug}</span>
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} noValidate className="grid max-w-md gap-4">
           <Field label="Name" error={errors.name}>
             {(p) => <Input {...p} value={name} onChange={(e) => setName(e.target.value)} />}
-          </Field>
-          <Field label="Slug" error={errors.slug} hint="Used in URLs and the CLI.">
-            {(p) => <Input {...p} className="font-mono" value={slug} onChange={(e) => setSlug(e.target.value)} />}
           </Field>
           {patch.isError ? <ErrorState error={patch.error} /> : null}
           {saved ? <p role="status" className="text-sm text-success">Saved.</p> : null}
