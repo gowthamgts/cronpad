@@ -11,8 +11,12 @@ import (
 	"github.com/gowthamgts/cronpad/internal/logx"
 )
 
+// maxLoggedPath bounds what a scanner's junk URL can add to a log line.
+const maxLoggedPath = 256
+
 // requestLogging sits outside Recoverer so recovered panics are logged as 500s.
-// Only route templates are logged: raw paths and query strings can contain secrets.
+// Paths carry only IDs and names, so they are logged; query strings (OAuth code and state) and headers can
+// carry secrets and never are.
 func requestLogging(log *slog.Logger, clk clockwork.Clock) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +33,11 @@ func requestLogging(log *slog.Logger, clk clockwork.Clock) func(http.Handler) ht
 			if status == http.StatusNotFound || status == http.StatusMethodNotAllowed || route == "" {
 				route = "<unmatched>"
 			}
-			log.InfoContext(ctx, "request finished", logx.Route, route, logx.StatusCode, status, logx.DurationMS, clk.Since(start).Milliseconds())
+			path := r.URL.Path
+			if len(path) > maxLoggedPath {
+				path = path[:maxLoggedPath] + "…"
+			}
+			log.InfoContext(ctx, "request finished", logx.Route, route, logx.Path, path, logx.StatusCode, status, logx.DurationMS, clk.Since(start).Milliseconds())
 		})
 	}
 }

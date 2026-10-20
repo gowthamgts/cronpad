@@ -95,8 +95,8 @@ describe("secret, key and workspace rules", () => {
   it("checks key and workspace names", () => {
     expect(validateKeyName(" ")).not.toBeNull();
     expect(validateKeyName("ci")).toBeNull();
-    expect(validateWorkspace("Acme", "acme-1")).toEqual({});
-    expect(validateWorkspace("", "Bad Slug")).toEqual({ name: expect.any(String), slug: expect.any(String) });
+    expect(validateWorkspace("Acme")).toEqual({});
+    expect(validateWorkspace(" ")).toEqual({ name: expect.any(String) });
   });
 });
 

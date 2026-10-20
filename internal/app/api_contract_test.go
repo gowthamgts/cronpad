@@ -299,7 +299,17 @@ func TestAPIKeyFlowAndIsolation(t *testing.T) {
 	f.request("GET", "/api/v1/runs/run_failed", "", nil, nil, 200)
 	f.request("POST", "/api/v1/runs/run_failed/retry", "", nil, nil, 202)
 	f.request("GET", "/api/v1/stats/overview?window=7d", "", nil, nil, 200)
-	f.request("PATCH", "/api/v1/workspaces/"+ws, `{"name":"New workspace name"}`, nil, nil, 200)
+	slugOf := func(body string) string {
+		var v struct{ Slug string }
+		if err := json.Unmarshal([]byte(body), &v); err != nil {
+			t.Fatal(err)
+		}
+		return v.Slug
+	}
+	before := slugOf(f.request("GET", "/api/v1/workspaces/"+ws, "", nil, nil, 200).Body.String())
+	if after := slugOf(f.request("PATCH", "/api/v1/workspaces/"+ws, `{"name":"New workspace name"}`, nil, nil, 200).Body.String()); after != before {
+		t.Fatalf("renaming the workspace changed its slug from %q to %q", before, after)
+	}
 	list := f.request("GET", "/api/v1/secrets", "", nil, nil, 200)
 	if strings.Contains(list.Body.String(), "TOP_SECRET_M3") {
 		t.Fatal("secret returned")

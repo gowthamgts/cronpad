@@ -27,6 +27,7 @@ const (
 	RequestID   = "request_id"
 	Method      = "method"
 	Route       = "route"
+	Path        = "path"
 	Status      = "status"
 	Actor       = "actor"
 	Claimed     = "claimed"

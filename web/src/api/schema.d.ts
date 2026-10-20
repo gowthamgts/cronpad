@@ -948,7 +948,6 @@ export interface components {
         };
         WorkspacePatch: {
             name?: string;
-            slug?: string;
         };
         KeyInput: {
             name: string;
