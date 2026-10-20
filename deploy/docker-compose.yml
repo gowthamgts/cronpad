@@ -5,68 +5,32 @@ services:
       dockerfile: deploy/Dockerfile
     ports: ['8080:8080']
     environment:
-      CRONPAD_AUTH__DEV_LOGIN: ${CRONPAD_AUTH__DEV_LOGIN:-false}
-      CRONPAD_SECRETS__ENCRYPTION_KEY: ${CRONPAD_SECRETS__ENCRYPTION_KEY:-}
-      CRONPAD_AUTH__GITHUB__CLIENT_ID: ${CRONPAD_AUTH__GITHUB__CLIENT_ID:-}
-      CRONPAD_AUTH__GITHUB__CLIENT_SECRET: ${CRONPAD_AUTH__GITHUB__CLIENT_SECRET:-}
-      # The delivery queue is /data/cronpad-queue.db, beside the databases; nothing else to run.
-      CRONPAD_DATABASE__PATH: /data/cronpad.db
-      CRONPAD_DATABASE__HISTORY_PATH: /data/history.db
-      CRONPAD_TELEMETRY__PROMETHEUS_ADDR: ":9090"
-      # Plain SQLite by default; set LITESTREAM_REPLICA_URL (and credentials) to replicate.
-      LITESTREAM_REPLICA_URL: ${LITESTREAM_REPLICA_URL:-}
-      LITESTREAM_ENDPOINT: ${LITESTREAM_ENDPOINT:-}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # Optional host inputs for the local quickstart; otherwise use app defaults.
+      CRONPAD_AUTH__DEV_LOGIN:
+      CRONPAD_SECRETS__ENCRYPTION_KEY:
+      CRONPAD_TELEMETRY__OTLP_ENDPOINT: http://otel-collector:4317
+      CRONPAD_TELEMETRY__OTLP_LOGS: "true"
       # Command sinks are off by default; set CRONPAD_SINKS__COMMAND__ENABLED=true to allow them.
       CRONPAD_SINKS__COMMAND__ENABLED: ${CRONPAD_SINKS__COMMAND__ENABLED:-false}
       # Optional: allow another site (e.g. one embedding the schedule preview) to call /api/ from the browser.
       # No cookies are ever sent cross-origin. Comma-separated exact origins.
       # CRONPAD_UI__CORS_ORIGINS: https://www.example.com
     volumes: [cronpad-data:/data]
-    depends_on:
-      seaweedfs-init:
-        condition: service_completed_successfully
-        required: false
     stop_grace_period: 40s
-  seaweedfs:
-    image: chrislusf/seaweedfs:4.48
-    profiles: [demo, backup]
-    # Single-process master + volume + filer + S3 gateway on :8333. Demo only.
-    command: ['server', '-dir=/data', '-s3', '-s3.config=/etc/seaweedfs/s3.json']
-    ports: ['8333:8333']
-    volumes: ['seaweedfs-data:/data', './seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro']
-  seaweedfs-init:
-    image: amazon/aws-cli:2.38.1
-    profiles: [demo, backup]
-    depends_on: [seaweedfs]
-    environment:
-      AWS_ACCESS_KEY_ID: cronpad-demo
-      AWS_SECRET_ACCESS_KEY: cronpad-demo-local-only
-      AWS_DEFAULT_REGION: us-east-1
-    entrypoint: ['/bin/sh', '-c']
-    command:
-      - >-
-        until aws --endpoint-url http://seaweedfs:8333 s3api head-bucket --bucket cronpad-demo ||
-        aws --endpoint-url http://seaweedfs:8333 s3api create-bucket --bucket cronpad-demo; do sleep 2; done
-
+    depends_on: [otel-collector]
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.121.0
-    profiles: [observability]
     volumes: ['./otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro']
-    ports: ['4317:4317', '4318:4318']
+    ports: ['127.0.0.1:4317:4317', '127.0.0.1:4318:4318']
   prometheus:
     image: prom/prometheus:v3.2.1
-    profiles: [observability]
     volumes: ['./prometheus.yml:/etc/prometheus/prometheus.yml:ro', './prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro']
-    ports: ['9090:9090']
+    ports: ['127.0.0.1:9090:9090']
   grafana:
     image: grafana/grafana:11.6.0
-    profiles: [observability]
-    ports: ['3000:3000']
+    ports: ['127.0.0.1:3000:3000']
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/cronpad-dashboard.json:/var/lib/grafana/dashboards/cronpad.json:ro
 volumes:
   cronpad-data:
-  seaweedfs-data:

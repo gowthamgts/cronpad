@@ -904,6 +904,13 @@ export interface components {
             request_summary: string;
             error?: string;
         };
+        AlertChannelTestResult: {
+            /** @enum {string} */
+            outcome: "success" | "fatal";
+            duration_ms: number;
+            /** @description Empty when the outcome is success. */
+            error: string;
+        };
         ScheduleInput: {
             expr: string;
             /** @enum {string} */
@@ -1338,7 +1345,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TestResult"];
+                    "application/json": components["schemas"]["AlertChannelTestResult"];
                 };
             };
             501: components["responses"]["Error"];

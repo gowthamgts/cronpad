@@ -71,7 +71,7 @@ function Channels({ channels }: { channels: Channel[] }) {
   // undefined = closed, null = new channel, a channel = editing it.
   const [editing, setEditing] = useState<Channel | null | undefined>(undefined);
   const [secret, setSecret] = useState<string | null>(null);
-  const [results, setResults] = useState<Record<string, Schemas["TestResult"]>>({});
+  const [results, setResults] = useState<Record<string, Schemas["AlertChannelTestResult"]>>({});
   const remove = useMutation({
     mutationFn: (id: string) => call(api.DELETE("/api/v1/alert-channels/{id}", { params: { path: { id } } })),
     onSuccess: invalidate,

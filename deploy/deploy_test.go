@@ -10,18 +10,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DECISION: offline YAML structural validation is the fallback when promtool is
-// absent; the checked-in expressions also have metric registry coverage in M2b.
 func TestDeploymentYAML(t *testing.T) {
-	files := []string{"docker-compose.yml", "litestream.yml", "prometheus/alerts.yml", "../.goreleaser.yaml", "../.github/workflows/ci.yml", "../.github/workflows/release.yml"}
+	files := []string{"docker-compose.yml", "docker-compose.seaweedfs.yml", "litestream.yml", "otel-collector.yml", "prometheus.yml", "prometheus/alerts.yml", "../.goreleaser.yaml", "../.github/workflows/ci.yml", "../.github/workflows/release.yml"}
 	k8s, err := filepath.Glob("kubernetes/*.yml")
 	if err != nil {
 		t.Fatal(err)
 	}
 	files = append(files, k8s...)
-	provisioning, e := filepath.Glob("grafana/provisioning/*/*.yml")
-	if e != nil {
-		t.Fatal(e)
+	provisioning, err := filepath.Glob("grafana/provisioning/*/*.yml")
+	if err != nil {
+		t.Fatal(err)
 	}
 	files = append(files, provisioning...)
 	for _, file := range files {
