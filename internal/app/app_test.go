@@ -16,6 +16,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/gowthamgts/cronpad/internal/config"
+	"github.com/gowthamgts/cronpad/internal/events"
 	"github.com/gowthamgts/cronpad/pkg/ext"
 )
 
@@ -155,5 +156,28 @@ func TestReadinessReportsDependenciesAndDispatcher(t *testing.T) {
 		// The closed queue may surface as a Run error on shutdown; it must still stop.
 	case <-guard.Done():
 		t.Fatal("shutdown blocked")
+	}
+}
+
+func TestExtensionDepsExposeStatsAndLifecycleEvents(t *testing.T) {
+	f := newFixture(t)
+	f.request("POST", "/api/v1/jobs", m3Job, nil, nil, 201)
+	got, err := f.a.deps.Stats.ReadStats(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["users"] != 1 || got["workspaces"] != 1 || got["workspaces.suspended"] != 0 || got["jobs"] != 1 || got["jobs.active"] != 1 || got["jobs.paused"] != 0 {
+		t.Fatalf("stats %v", got)
+	}
+	received := make(chan ext.Event, 1)
+	f.a.deps.Events.Subscribe(func(_ context.Context, e ext.Event) { received <- e })
+	f.a.Dispatcher.Workers.Events.Publish(t.Context(), events.Event{Type: events.RunFailed, WorkspaceID: "ws_1", JobID: "job_1", RunID: "run_1", Error: "boom", At: time.Now()})
+	select {
+	case e := <-received:
+		if e.Type != events.RunFailed || e.JobID != "job_1" || e.Error != "boom" {
+			t.Fatalf("event %+v", e)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("lifecycle event not delivered")
 	}
 }

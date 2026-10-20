@@ -25,8 +25,10 @@ type Querier interface {
 	ChangeJobState(ctx context.Context, arg ChangeJobStateParams) (Job, error)
 	ClearAlertVerifications(ctx context.Context, channelID string) error
 	CommitSession(ctx context.Context, arg CommitSessionParams) error
+	CountActiveUsers(ctx context.Context) (int64, error)
 	CountJobs(ctx context.Context, workspaceID string) (int64, error)
 	CountKeys(ctx context.Context, workspaceID string) (int64, error)
+	CountWorkspaces(ctx context.Context) (CountWorkspacesRow, error)
 	CreateJob(ctx context.Context, arg CreateJobParams) (Job, error)
 	CreateKey(ctx context.Context, arg CreateKeyParams) (ApiKey, error)
 	CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams) error

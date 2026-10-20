@@ -28,6 +28,7 @@ import (
 	"github.com/gowthamgts/cronpad/internal/id"
 	"github.com/gowthamgts/cronpad/internal/limits"
 	"github.com/gowthamgts/cronpad/internal/store"
+	"github.com/gowthamgts/cronpad/internal/store/historygen"
 	"github.com/gowthamgts/cronpad/internal/store/sqlitegen"
 	"github.com/gowthamgts/cronpad/pkg/ext"
 )
@@ -324,6 +325,7 @@ func (s *Service) Account(ctx context.Context, provider string, p Profile) (sqli
 		}
 	}
 	var user sqlitegen.User
+	var signupWorkspace string
 	e := s.Store.WithTx(ctx, store.Control, func(tx store.Tx) error {
 		existing, e := tx.Control.IdentityUser(ctx, sqlitegen.IdentityUserParams{Provider: provider, Subject: p.Subject})
 		if e == nil {
@@ -387,6 +389,7 @@ func (s *Service) Account(ctx context.Context, provider string, p Profile) (sqli
 			if e != nil {
 				return e
 			}
+			signupWorkspace = wid
 		} else if e != nil {
 			return e
 		}
@@ -395,11 +398,31 @@ func (s *Service) Account(ctx context.Context, provider string, p Profile) (sqli
 	if e != nil {
 		return user, fmt.Errorf("account: %w", e)
 	}
+	if signupWorkspace != "" {
+		// The account is committed, so a failed cross-file audit is logged rather than failing sign-in.
+		if e = s.auditSignup(ctx, signupWorkspace, provider, user); e != nil {
+			slog.WarnContext(ctx, "signup audit failed", "user_id", user.ID, "error", e)
+		}
+	}
 	if user.DeactivatedAt.Valid {
 		return user, fmt.Errorf("user deactivated")
 	}
 	_ = s.Store.Control().TouchLogin(ctx, sqlitegen.TouchLoginParams{ID: user.ID, LastLoginAt: sql.NullInt64{Int64: s.Clock.Now().UnixMilli(), Valid: true}})
 	return user, nil
+}
+
+// auditSignup records user.signup in the new personal workspace; extensions see it through ext.AuditRegistry.
+func (s *Service) auditSignup(ctx context.Context, workspace, provider string, user sqlitegen.User) error {
+	now := s.Clock.Now()
+	aid, err := id.New(id.Run, now)
+	if err != nil {
+		return err
+	}
+	details, err := json.Marshal(map[string]string{"email": user.Email, "name": user.Name.String, "provider": provider})
+	if err != nil {
+		return err
+	}
+	return s.Store.History().WriteAudit(ctx, historygen.WriteAuditParams{ID: "audit_" + aid, WorkspaceID: workspace, Actor: "user:" + user.ID, Action: "user.signup", Target: sql.NullString{String: user.ID, Valid: true}, Details: sql.NullString{String: string(details), Valid: true}, CreatedAt: now.UnixMilli()})
 }
 func (s *Service) Mount(r chi.Router) {
 	public := r

@@ -30,6 +30,7 @@ import (
 
 	"github.com/gowthamgts/cronpad/internal/alert"
 	"github.com/gowthamgts/cronpad/internal/dispatcher"
+	"github.com/gowthamgts/cronpad/internal/events"
 	"github.com/gowthamgts/cronpad/internal/results"
 	"github.com/gowthamgts/cronpad/internal/sink"
 	"github.com/gowthamgts/cronpad/internal/sink/command"
@@ -102,6 +103,7 @@ type App struct {
 	hook        *webhook.Webhook
 	notifier    *alert.Notifier
 	audit       *auth.AuditBus
+	lifecycle   *events.Subscribers
 	auditCancel context.CancelFunc
 	auditDone   chan struct{}
 }
@@ -261,6 +263,10 @@ func New(ctx context.Context, c config.Config, edition string, extensions []ext.
 	d.Entitlements = auth.NoEntitlements{}
 	d.Directory = admin
 	d.Audit = audit
+	lifecycle := events.NewSubscribers(log)
+	a.lifecycle = lifecycle
+	d.Events = lifecycle
+	d.Stats = stats{repository}
 	d.Workspaces = admin
 	d.Session = authentication
 	d.Limits = quotas
@@ -297,7 +303,7 @@ func New(ctx context.Context, c config.Config, edition string, extensions []ext.
 	}
 	cache := worker.NewJobCache(repository, 10000)
 	scheduler.Invalidate = cache.Invalidate
-	engine := &worker.Engine{Cache: cache, Store: repository, Queue: q, Writer: writer, Clock: clk, Config: c, Sinks: sinks, Metrics: instruments, Log: log, Tracer: otel.Tracer("cronpad"), Events: evaluator, Vault: vault, Limits: quotas, RNG: rand.New(rand.NewSource(clk.Now().UnixNano()))}
+	engine := &worker.Engine{Cache: cache, Store: repository, Queue: q, Writer: writer, Clock: clk, Config: c, Sinks: sinks, Metrics: instruments, Log: log, Tracer: otel.Tracer("cronpad"), Events: events.Multi{evaluator, lifecycle}, Vault: vault, Limits: quotas, RNG: rand.New(rand.NewSource(clk.Now().UnixNano()))}
 	a.Dispatcher = &dispatcher.Dispatcher{Store: repository, Queue: q, Writer: writer, Workers: engine, Clock: clk, Config: c, Metrics: instruments, Log: log, Wake: scheduler.WakeCh}
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -363,7 +369,14 @@ func New(ctx context.Context, c config.Config, edition string, extensions []ext.
 	auditCtx, cancel := context.WithCancel(ctx)
 	a.auditCancel = cancel
 	a.auditDone = make(chan struct{})
-	go func() { defer close(a.auditDone); _ = a.audit.Run(auditCtx) }()
+	// The extension buses share one lifetime: both drain until Close.
+	go func() {
+		defer close(a.auditDone)
+		lifecycleDone := make(chan struct{})
+		go func() { defer close(lifecycleDone); _ = a.lifecycle.Run(auditCtx) }()
+		_ = a.audit.Run(auditCtx)
+		<-lifecycleDone
+	}()
 	return a, nil
 }
 
