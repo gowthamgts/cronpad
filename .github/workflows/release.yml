@@ -11,13 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with: {fetch-depth: 0}
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
-        with: {go-version-file: go.mod}
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
-        with: {version: 12.8.1}
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with: {node-version: 26}
-      - run: cargo install just --version 1.58.0 --locked
+      # Same toolchain as CI, including the prebuilt just (compiling it took ~2 minutes).
+      - uses: ./.github/actions/setup
+        with: {go: 'true', node: 'true'}
       - run: just release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -33,6 +29,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      # The build stages cross-compile natively (see deploy/Dockerfile); QEMU only runs the
+      # arm64 runtime stage's apk/adduser. Layers are cached in ghcr under :buildcache, so
+      # unchanged dependency installs are reused; a failed cache export doesn't fail the release.
       - name: Build and push
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
@@ -46,4 +45,6 @@ jobs:
             --build-arg VERSION="${GITHUB_REF_NAME#v}" --build-arg COMMIT="$GITHUB_SHA" \
             --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -f deploy/Dockerfile $tags \
+            --cache-from "type=registry,ref=$image:buildcache" \
+            --cache-to "type=registry,ref=$image:buildcache,mode=max,ignore-error=true" \
             --provenance=true --sbom=true --push .

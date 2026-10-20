@@ -1,4 +1,6 @@
-FROM node:26-slim AS web
+# DECISION: build stages run on the native builder platform and cross-compile, so the
+# arm64 image doesn't build Node and Go under QEMU. web/dist is platform-independent.
+FROM --platform=$BUILDPLATFORM node:26-slim AS web
 RUN npm install --global pnpm@12.8.1
 WORKDIR /src
 COPY pnpm-workspace.yaml pnpm-lock.yaml ./
@@ -9,7 +11,7 @@ RUN pnpm --dir web install --frozen-lockfile
 COPY web web
 RUN pnpm --dir web build
 
-FROM golang:1.27.2 AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.2 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -18,7 +20,8 @@ COPY --from=web /src/web/dist web/dist
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=unknown
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/gowthamgts/cronpad/internal/version.Version=${VERSION} -X github.com/gowthamgts/cronpad/internal/version.Commit=${COMMIT} -X github.com/gowthamgts/cronpad/internal/version.BuildDate=${BUILD_DATE}" -o /out/cronpad ./cmd/cronpad
+ARG TARGETOS TARGETARCH
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X github.com/gowthamgts/cronpad/internal/version.Version=${VERSION} -X github.com/gowthamgts/cronpad/internal/version.Commit=${COMMIT} -X github.com/gowthamgts/cronpad/internal/version.BuildDate=${BUILD_DATE}" -o /out/cronpad ./cmd/cronpad
 RUN mkdir /out/data && chmod 0777 /out/data
 
 FROM litestream/litestream:0.3.13 AS litestream
