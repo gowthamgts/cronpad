@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -128,7 +129,7 @@ func Load(ctx context.Context, path string, flags *pflag.FlagSet, sections map[s
 }
 
 // SharedCookieDomain is the parent domain the hosted dashboard shares with the public site: server.public_url
-// without its first label (https://dash.cronpad.com -> cronpad.com). The theme cookie and the signed-in hint
+// without its first label (https://app.cronpad.com -> cronpad.com). The theme cookie and the signed-in hint
 // cookie live there so the site can match the dashboard. Self-hosted servers have no such site, so their
 // cookies stay on the dashboard host ("").
 func (c Config) SharedCookieDomain() string {
@@ -179,7 +180,8 @@ func (c Config) Validate() error {
 		problems = append(problems, "server.addr: port must be between 0 and 65535")
 	}
 	for _, cidr := range c.Server.TrustedProxies {
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
+		// Same parser as chi's ClientIPFromXFF, which panics on what it can't parse.
+		if _, err := netip.ParsePrefix(cidr); err != nil {
 			problems = append(problems, "server.trusted_proxies: invalid CIDR "+cidr)
 		}
 	}

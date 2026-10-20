@@ -148,7 +148,13 @@ func New(ctx context.Context, c config.Config, edition string, extensions []ext.
 	a := &App{Config: c, DBs: dbs, deps: d, extensions: extensions, log: log}
 	r := chi.NewRouter()
 	a.router = r
-	r.Use(middleware.RequestID, requestLogging(log, clk), middleware.Recoverer)
+	// The client IP for rate limits: X-Forwarded-For is read only from server.trusted_proxies (right to left,
+	// skipping trusted hops), so a client connecting directly cannot choose its address.
+	clientIP := middleware.ClientIPFromRemoteAddr
+	if len(c.Server.TrustedProxies) > 0 {
+		clientIP = middleware.ClientIPFromXFF(c.Server.TrustedProxies...)
+	}
+	r.Use(clientIP, middleware.RequestID, requestLogging(log, clk), middleware.Recoverer)
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("X-Request-ID", middleware.GetReqID(r.Context()))

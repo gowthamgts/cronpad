@@ -438,11 +438,11 @@ func TestQuotaEventsReachRulesWithoutSMTP(t *testing.T) {
 }
 
 func TestAlertDashboardLinks(t *testing.T) {
-	e := &Evaluator{PublicURL: "https://dash.cronpad.com"}
+	e := &Evaluator{PublicURL: "https://app.cronpad.com"}
 	for _, tc := range []struct{ jobID, runID, want string }{
-		{"job_1", "run_1", "https://dash.cronpad.com/runs/run_1"},
-		{"job_1", "", "https://dash.cronpad.com/jobs/job_1"},
-		{"", "", "https://dash.cronpad.com/alerts"},
+		{"job_1", "run_1", "https://app.cronpad.com/runs/run_1"},
+		{"job_1", "", "https://app.cronpad.com/jobs/job_1"},
+		{"", "", "https://app.cronpad.com/alerts"},
 	} {
 		p := e.payload(events.Event{}, sqlitegen.Job{ID: tc.jobID}, historygen.Run{ID: tc.runID})
 		if p.URL != tc.want {

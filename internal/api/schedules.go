@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/jonboulle/clockwork"
 
@@ -171,8 +172,12 @@ func writeError(w http.ResponseWriter, status int, code, message string, details
 	writeJSON(w, status, envelope{Error: ErrorBody{Code: code, Message: message, Fields: fields, Errors: details}})
 }
 
-// DECISION: trust only the TCP peer; proxy headers need configured trusted-proxy middleware.
+// DECISION: the client IP comes from chi's ClientIPFrom* middleware (app.New), which reads
+// X-Forwarded-For only from server.trusted_proxies. Without one (or when it fails closed), use the TCP peer.
 func peerIP(r *http.Request) (string, error) {
+	if ip := middleware.GetClientIP(r.Context()); ip != "" {
+		return ip, nil
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr

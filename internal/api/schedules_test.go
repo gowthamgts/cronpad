@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jonboulle/clockwork"
 )
 
@@ -73,6 +74,42 @@ func TestRateLimitAndMinimumGap(t *testing.T) {
 		if i == 1 && (w.Code != 429 || !strings.Contains(w.Body.String(), `"code":"rate_limited"`)) {
 			t.Fatalf("%d %s", w.Code, w.Body.String())
 		}
+	}
+}
+
+func TestRateLimitBehindTrustedProxies(t *testing.T) {
+	clk := clockwork.NewFakeClockAt(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	r := chi.NewRouter()
+	// Hosted shape: Cloudflare (173.245.48.0/20) -> Caddy -> Docker gateway (172.31.240.0/24) -> cronpad.
+	r.Use(middleware.ClientIPFromXFF("172.31.240.0/24", "173.245.48.0/20"))
+	Schedules(r, clk, time.Minute, 1)
+	send := func(peer, xff string) int {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequestWithContext(t.Context(), "POST", "/api/v1/schedules/validate", strings.NewReader(`{"expr":"every 1 hour"}`))
+		req.RemoteAddr = peer
+		req.Header.Set("X-Forwarded-For", xff)
+		r.ServeHTTP(w, req)
+		return w.Code
+	}
+	// Two clients through Cloudflare get separate buckets.
+	for _, client := range []string{"198.51.100.1", "198.51.100.2"} {
+		if code := send("172.31.240.1:1111", client+", 173.245.48.7"); code != 200 {
+			t.Fatalf("client %s: %d", client, code)
+		}
+	}
+	// A direct hit cannot pick its bucket: the forged Cloudflare entry is untrusted, so it is the client.
+	if code := send("172.31.240.1:1111", "198.51.100.3, 192.0.2.66"); code != 200 {
+		t.Fatal(code)
+	}
+	if code := send("172.31.240.1:1111", "198.51.100.4, 192.0.2.66"); code != 429 {
+		t.Fatalf("forged chain got its own bucket: %d", code)
+	}
+	// An untrusted peer's header is ignored entirely.
+	if code := send("203.0.113.9:1111", "198.51.100.5"); code != 200 {
+		t.Fatal(code)
+	}
+	if code := send("203.0.113.9:1111", "198.51.100.6"); code != 429 {
+		t.Fatalf("untrusted peer chose its bucket: %d", code)
 	}
 }
 

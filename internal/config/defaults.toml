@@ -8,7 +8,7 @@ public_url = "http://localhost:8080"    # how users reach it from outside, e.g. 
 read_timeout = "15s"
 write_timeout = "30s"
 shutdown_grace = "30s"
-trusted_proxies = []           # CIDRs for X-Forwarded-For
+trusted_proxies = []           # CIDRs of every proxy hop (incl. a CDN such as Cloudflare) whose X-Forwarded-For sets the client IP
 
 [ui]
 # One binary, one port, one entry point. These flags only decide which routes the binary mounts.

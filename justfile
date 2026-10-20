@@ -32,7 +32,7 @@ dev: web-install
     # A trapped signal interrupts `wait`; keep waiting so both shut down cleanly.
     while kill -0 "$server" 2>/dev/null || kill -0 "$web" 2>/dev/null; do wait || true; done
 
-# Open http://dash.cronpad.localhost:5173/ (dashboard) and http://cronpad.localhost:4321/ (site, from
+# Open http://app.cronpad.localhost:5173/ (dashboard) and http://cronpad.localhost:4321/ (site, from
 # `just dev-hosted` in ~/code/cronpad-web). Hosted mode keeps its own databases under ./data.
 # `just dev` as the hosted service on *.cronpad.localhost, sharing theme and sign-in cookies with the site.
 dev-hosted:
@@ -40,7 +40,7 @@ dev-hosted:
     set -eu
     mkdir -p data
     export CRONPAD_MODE=hosted
-    export CRONPAD_SERVER__PUBLIC_URL=http://dash.cronpad.localhost:5173
+    export CRONPAD_SERVER__PUBLIC_URL=http://app.cronpad.localhost:5173
     export CRONPAD_UI__CORS_ORIGINS=http://cronpad.localhost:4321
     export CRONPAD_DATABASE__PATH=./data/hosted-dev.db
     export CRONPAD_DATABASE__HISTORY_PATH=./data/hosted-dev-history.db

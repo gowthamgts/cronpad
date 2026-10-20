@@ -19,7 +19,7 @@ Short list of non-obvious things in this repo. Read the code for everything else
 
 ## Theme and the hosted signed-in hint
 - The theme is stored in localStorage under `cronpad-theme` (`light`/`dark`; absent = system).
-- **Hosted mode only** (`config.SharedCookieDomain()`, derived from `server.public_url`, e.g. `dash.cronpad.com` → `cronpad.com`):
+- **Hosted mode only** (`config.SharedCookieDomain()`, derived from `server.public_url`, e.g. `app.cronpad.com` → `cronpad.com`):
   - Go injects `<meta name="cronpad-cookie-domain">` into `index.html`. With it, the theme is also written to a `cronpad-theme` cookie on that domain, shared with the public website. The cookie wins over localStorage and stores `system` explicitly (so it can override a stale value).
   - Login sets `cronpad_signed_in=1` on that domain. It is a hint for the website's header only: never use it for authorization. It is cleared on logout and on any 401 that carries it. The session cookie stays host-only and `HttpOnly`.
 - Self-hosted mode writes no shared cookies. If you change the cookie format, the website's `theme.js` must change too.
@@ -38,7 +38,7 @@ Short list of non-obvious things in this repo. Read the code for everything else
 - `config.example.toml` must stay byte-identical to `internal/config/defaults.toml` (a test checks this).
 
 ## Running and testing
-- `just dev`: Go on :8080 + Vite on :5173. `just dev-hosted`: the same, in hosted mode, on `http://dash.cronpad.localhost:5173` with separate `./data/hosted-dev*.db` files, for testing shared cookies with the website's own `dev-hosted` recipe. Vite silently moves to :5174 if :5173 is busy, which breaks those URLs.
+- `just dev`: Go on :8080 + Vite on :5173. `just dev-hosted`: the same, in hosted mode, on `http://app.cronpad.localhost:5173` with separate `./data/hosted-dev*.db` files, for testing shared cookies with the website's own `dev-hosted` recipe. Vite silently moves to :5174 if :5173 is busy, which breaks those URLs.
 - `pnpm build` runs `tsc --noEmit` first, so any type error blocks the build.
 - e2e (`pnpm e2e`) runs against `bin/cronpad`, which embeds `web/dist` via `go:embed`. Run `pnpm build`, then `go build -o bin/cronpad ./cmd/cronpad`, before it. Needs nothing else running.
 - The e2e axe scan fails on serious violations. Ones we hit: a button's visible text must be part of its accessible name (`label-content-name-mismatch`), and a `<dl>` may only contain `dt`/`dd` or `div` groups of them.

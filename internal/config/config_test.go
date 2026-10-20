@@ -117,7 +117,7 @@ func TestValidationAllErrors(t *testing.T) {
 }
 func TestSharedCookieDomainOnlyWhenHosted(t *testing.T) {
 	for _, tc := range []struct{ mode, publicURL, want string }{
-		{"hosted", "https://dash.cronpad.com", "cronpad.com"},
+		{"hosted", "https://app.cronpad.com", "cronpad.com"},
 		{"hosted", "https://dash.eu.cronpad.com", "eu.cronpad.com"},
 		{"hosted", "https://cronpad.com", ""},
 		{"hosted", "http://127.0.0.1:8080", ""},

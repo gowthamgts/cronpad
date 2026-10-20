@@ -6,7 +6,7 @@ export const themeChangeEvent = "cronpad-theme-change";
 let memoryPreference: ThemePreference = "system";
 
 /*
- * In hosted mode (dash.cronpad.com) the server puts the shared parent domain in <meta name="cronpad-cookie-domain"> and the choice is
+ * In hosted mode (app.cronpad.com) the server puts the shared parent domain in <meta name="cronpad-cookie-domain"> and the choice is
  * also kept in a `cronpad-theme` cookie on that domain, which the public site reads and writes too. The
  * cookie always holds a value ("system" included) so it can override this origin's localStorage.
  */

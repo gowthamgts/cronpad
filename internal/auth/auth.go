@@ -20,6 +20,7 @@ import (
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 	"github.com/jonboulle/clockwork"
 
@@ -404,6 +405,10 @@ func (s *Service) Mount(r chi.Router) {
 	public := r
 	if s.Hosted {
 		public = r.With(httprate.LimitBy(10, time.Minute, func(r *http.Request) (string, error) {
+			// Set by app.New from server.trusted_proxies; the TCP peer otherwise.
+			if ip := middleware.GetClientIP(r.Context()); ip != "" {
+				return ip, nil
+			}
 			host, _, e := net.SplitHostPort(r.RemoteAddr)
 			if e != nil {
 				host = r.RemoteAddr
