@@ -125,6 +125,8 @@
 
 @layer base {
   html { -webkit-text-size-adjust: 100%; }
+  /* Tailwind v4 defaults buttons to the arrow cursor; enabled actions use a pointer. */
+  :is(button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]):not(:disabled, [aria-disabled="true"]) { cursor: pointer; }
   body { @apply bg-paper text-ink font-mono text-[15px] leading-relaxed antialiased; font-variant-ligatures: none; }
   :focus-visible { outline: 2px solid hsl(var(--focus)); outline-offset: 2px; }
   /* Text fields and dropdown triggers draw their own flush 1px ring (.field, Combobox); the offset ring is for buttons and links. */
