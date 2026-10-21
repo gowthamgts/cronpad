@@ -310,11 +310,22 @@ func pipelineLoad(t *testing.T, jobs, seconds int, profiles ...string) int64 {
 		t.Fatal(err)
 	}
 	pressure := map[string]int64{"cronpad.db.errors": 0, "cronpad.dispatcher.backpressure": 0}
+	// Durable starts wait on history commits, so a slow flush explains slow starts.
+	var maxHistoryFlush float64
 	for _, scope := range collected.ScopeMetrics {
 		for _, metric := range scope.Metrics {
 			if _, ok := pressure[metric.Name]; ok {
 				for _, point := range metric.Data.(metricdata.Sum[int64]).DataPoints {
 					pressure[metric.Name] += point.Value
+				}
+			}
+			if metric.Name == "cronpad.results.flush_duration" {
+				for _, point := range metric.Data.(metricdata.Histogram[float64]).DataPoints {
+					if db, _ := point.Attributes.Value("db"); db.AsString() == string(store.History) {
+						if v, ok := point.Max.Value(); ok {
+							maxHistoryFlush = max(maxHistoryFlush, v)
+						}
+					}
 				}
 			}
 		}
@@ -325,7 +336,7 @@ func pipelineLoad(t *testing.T, jobs, seconds int, profiles ...string) int64 {
 			t.Errorf("unexpected pipeline pressure %s=%d", name, count)
 		}
 	}
-	t.Logf("PIPELINE profile=%s jobs=%d seconds=%d expected=%d recorded=%d delivered=%d missed=%d duplicates=%d p50_start_lag_ms=%d p99_start_lag_ms=%d dispatcher_identity_reads=%d", profile, jobs, seconds, expected, total, delivered.Load(), missed, duplicates, p50, p99, historyReads.finds.Load())
+	t.Logf("PIPELINE profile=%s jobs=%d seconds=%d expected=%d recorded=%d delivered=%d missed=%d duplicates=%d p50_start_lag_ms=%d p99_start_lag_ms=%d dispatcher_identity_reads=%d max_history_flush_ms=%.0f", profile, jobs, seconds, expected, total, delivered.Load(), missed, duplicates, p50, p99, historyReads.finds.Load(), maxHistoryFlush)
 	if profile == "block" && historyReads.finds.Load() > int64(jobs*2) {
 		t.Errorf("per-occurrence SQLite identity reads returned: %d", historyReads.finds.Load())
 	}
