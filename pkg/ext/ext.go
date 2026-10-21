@@ -38,6 +38,9 @@ type ConfigView interface {
 	Mode() string
 	PublicURL() string
 }
+
+// StatsReader returns instance-wide counts: users, workspaces, workspaces.suspended,
+// jobs and jobs.<state> (active, paused, disabled, completed). Keys are additive.
 type StatsReader interface {
 	ReadStats(ctx context.Context) (map[string]int64, error)
 }
@@ -71,6 +74,8 @@ type Deps struct {
 	Directory Directory
 	// Audit subscribes to committed audit events asynchronously.
 	Audit AuditRegistry
+	// Events subscribes to run and job lifecycle events asynchronously.
+	Events EventRegistry
 	// Workspaces changes audited plans and suspension state with cache invalidation.
 	Workspaces WorkspaceAdmin
 }

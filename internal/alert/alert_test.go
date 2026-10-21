@@ -52,7 +52,7 @@ func setup(t *testing.T, url string) (*testutil.Fixture, *Evaluator, *Notifier, 
 	if err = e.Refresh(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	f.Engine.Events = e
+	f.Engine.Events, f.Engine.Alerts = e, e
 	f.Engine.Sinks["webhook"] = testutil.SinkFunc(func(context.Context, sink.ExecRequest) sink.ExecResult {
 		return sink.ExecResult{Outcome: sink.Fatal, Error: "boom"}
 	})

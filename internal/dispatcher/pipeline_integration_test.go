@@ -663,7 +663,7 @@ func testAlertDeliveredWithinFiveSeconds(t *testing.T) {
 	if err = evaluator.Refresh(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	f.Engine.Events = evaluator
+	f.Engine.Events, f.Engine.Alerts = evaluator, evaluator
 	runReal(t, d)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)

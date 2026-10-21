@@ -64,9 +64,18 @@ type Engine struct {
 	Log       *slog.Logger
 	Tracer    trace.Tracer
 	Events    events.Bus
-	RNG       *rand.Rand
-	mu        sync.Mutex
-	active    map[string]bool
+	// Alerts evaluates rules inside run transactions; nil skips it.
+	Alerts Recorder
+	RNG    *rand.Rand
+	mu     sync.Mutex
+	active map[string]bool
+}
+
+// Recorder writes alert state in the same history transaction as the run it describes.
+type Recorder interface {
+	RecordQuota(context.Context, store.Tx, string, int) error
+	RecordStart(context.Context, store.Tx, sqlitegen.Job, historygen.Run, int) error
+	RecordRun(context.Context, store.Tx, sqlitegen.Job, historygen.Run, sink.Outcome, bool) error
 }
 
 // TriggerName converts compact queue triggers to durable run trigger values.
@@ -230,20 +239,16 @@ func (e *Engine) Process(ctx context.Context, w Work) error {
 		}()
 		defer func() {
 			if startErr == nil && firstStart {
-				if recorder, ok := e.Events.(interface {
-					RecordQuota(context.Context, store.Tx, string, int) error
-				}); ok && notificationMax > 0 {
-					startErr = recorder.RecordQuota(dbCtx, tx, job.WorkspaceID, notificationMax)
+				if e.Alerts != nil && notificationMax > 0 {
+					startErr = e.Alerts.RecordQuota(dbCtx, tx, job.WorkspaceID, notificationMax)
 					if startErr != nil {
 						return
 					}
 				}
 			}
 			if startErr == nil && firstStart && run.SlaBreached != 0 {
-				if recorder, ok := e.Events.(interface {
-					RecordStart(context.Context, store.Tx, sqlitegen.Job, historygen.Run, int) error
-				}); ok {
-					startErr = recorder.RecordStart(dbCtx, tx, job, run, o.Attempt)
+				if e.Alerts != nil {
+					startErr = e.Alerts.RecordStart(dbCtx, tx, job, run, o.Attempt)
 				}
 			}
 		}()
@@ -438,10 +443,8 @@ func (e *Engine) Process(ctx context.Context, w Work) error {
 		if err != nil {
 			return err
 		}
-		if recorder, ok := e.Events.(interface {
-			RecordRun(context.Context, store.Tx, sqlitegen.Job, historygen.Run, sink.Outcome, bool) error
-		}); ok {
-			return recorder.RecordRun(ctx, tx, job, run, res.Outcome, firstStart)
+		if e.Alerts != nil {
+			return e.Alerts.RecordRun(ctx, tx, job, run, res.Outcome, firstStart)
 		}
 		return nil
 	})

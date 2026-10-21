@@ -22,6 +22,7 @@ import (
 
 	"github.com/gowthamgts/cronpad/internal/config"
 	"github.com/gowthamgts/cronpad/internal/store"
+	"github.com/gowthamgts/cronpad/internal/store/historygen"
 )
 
 func testService(t *testing.T) *Service {
@@ -71,6 +72,38 @@ func TestAccountVerifiedLinkingAndSignupPolicy(t *testing.T) {
 	p.Verified = false
 	if _, e = s.Account(ctx, "google", p); e == nil {
 		t.Fatal("unverified accepted")
+	}
+}
+func TestAccountAuditsSignupOnce(t *testing.T) {
+	s := testService(t)
+	s.Config.AllowSignup = true
+	ctx := context.Background()
+	var published []historygen.WriteAuditParams
+	s.Store.(*store.SQLite).SetAuditListener(func(_ context.Context, p historygen.WriteAuditParams) { published = append(published, p) })
+	u, e := s.Account(ctx, "github", Profile{"one", "ada@example.com", "Ada", true})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.Account(ctx, "github", Profile{"one", "ada@example.com", "Ada", true}); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = s.Account(ctx, "google", Profile{"two", "ada@example.com", "Ada", true}); e != nil {
+		t.Fatal(e)
+	}
+	ws, e := s.Store.ControlReader().UserWorkspaces(ctx, u.ID)
+	if e != nil || len(ws) != 1 {
+		t.Fatal(ws, e)
+	}
+	rows, e := s.Store.HistoryReader().ListAudit(ctx, historygen.ListAuditParams{WorkspaceID: ws[0].ID, Action: "user.signup", Cursor: "~", PageSize: 10})
+	if e != nil || len(rows) != 1 || len(published) != 1 {
+		t.Fatalf("audit rows %v published %v: %v", rows, published, e)
+	}
+	var details map[string]string
+	if e = json.Unmarshal([]byte(rows[0].Details.String), &details); e != nil {
+		t.Fatal(e)
+	}
+	if rows[0].Actor != "user:"+u.ID || rows[0].Target.String != u.ID || details["email"] != "ada@example.com" || details["provider"] != "github" {
+		t.Fatalf("audit row %+v %v", rows[0], details)
 	}
 }
 func TestAccountFollowsProviderEmailChange(t *testing.T) {
