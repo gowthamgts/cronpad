@@ -127,6 +127,23 @@ type AuditRegistry interface {
 	Subscribe(func(context.Context, AuditEvent))
 }
 
+// Event is a committed run or job lifecycle event, such as run.failed, run.succeeded,
+// run.timeout, job.auto_disabled or system.degraded. Type names are additive semver API.
+// WorkspaceID is empty for instance-wide system events.
+type Event struct {
+	Type, WorkspaceID, JobID, RunID string
+	Attempt                         int
+	Error                           string
+	At                              time.Time
+}
+
+// EventRegistry subscribes to lifecycle events on a bounded asynchronous queue.
+// Subscribers must return promptly and honor cancellation; overflow may drop events,
+// so counts that must be exact belong in Deps.Stats or an extension's own tables.
+type EventRegistry interface {
+	Subscribe(func(context.Context, Event))
+}
+
 // WorkspaceAdmin writes audited plan and suspension changes through core services.
 // SetPlan invalidates cached limits after a successful update.
 type WorkspaceAdmin interface {

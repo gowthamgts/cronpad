@@ -284,7 +284,12 @@ func TestAPIKeyFlowAndIsolation(t *testing.T) {
 	}
 	for _, path := range []string{"jobs", "runs", "api-keys", "secrets", "audit-log"} {
 		out := object(t, f.request("GET", "/api/v1/"+path, "", map[string]string{"X-Dev-User": "bob"}, nil, 200))
-		if len(out["data"].([]any)) != 0 {
+		rows := out["data"].([]any)
+		// Bob's own first sign-in is audited in his personal workspace.
+		if path == "audit-log" && len(rows) == 1 && rows[0].(map[string]any)["action"] == "user.signup" {
+			rows = nil
+		}
+		if len(rows) != 0 {
 			t.Fatalf("cross workspace list %s leaked: %v", path, out)
 		}
 	}

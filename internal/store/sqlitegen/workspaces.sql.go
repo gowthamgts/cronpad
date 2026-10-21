@@ -10,6 +10,22 @@ import (
 	"database/sql"
 )
 
+const countWorkspaces = `-- name: CountWorkspaces :one
+SELECT count(*) AS total, count(suspended_at) AS suspended FROM workspaces
+`
+
+type CountWorkspacesRow struct {
+	Total     int64 `json:"total"`
+	Suspended int64 `json:"suspended"`
+}
+
+func (q *Queries) CountWorkspaces(ctx context.Context) (CountWorkspacesRow, error) {
+	row := q.queryRow(ctx, q.countWorkspacesStmt, countWorkspaces)
+	var i CountWorkspacesRow
+	err := row.Scan(&i.Total, &i.Suspended)
+	return i, err
+}
+
 const createWorkspace = `-- name: CreateWorkspace :exec
 INSERT INTO workspaces (id, name, slug, plan, created_at) VALUES (?, ?, ?, ?, ?)
 `

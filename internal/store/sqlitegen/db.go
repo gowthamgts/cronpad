@@ -69,11 +69,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.commitSessionStmt, err = db.PrepareContext(ctx, commitSession); err != nil {
 		return nil, fmt.Errorf("error preparing query CommitSession: %w", err)
 	}
+	if q.countActiveUsersStmt, err = db.PrepareContext(ctx, countActiveUsers); err != nil {
+		return nil, fmt.Errorf("error preparing query CountActiveUsers: %w", err)
+	}
 	if q.countJobsStmt, err = db.PrepareContext(ctx, countJobs); err != nil {
 		return nil, fmt.Errorf("error preparing query CountJobs: %w", err)
 	}
 	if q.countKeysStmt, err = db.PrepareContext(ctx, countKeys); err != nil {
 		return nil, fmt.Errorf("error preparing query CountKeys: %w", err)
+	}
+	if q.countWorkspacesStmt, err = db.PrepareContext(ctx, countWorkspaces); err != nil {
+		return nil, fmt.Errorf("error preparing query CountWorkspaces: %w", err)
 	}
 	if q.createJobStmt, err = db.PrepareContext(ctx, createJob); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateJob: %w", err)
@@ -380,6 +386,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing commitSessionStmt: %w", cerr)
 		}
 	}
+	if q.countActiveUsersStmt != nil {
+		if cerr := q.countActiveUsersStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countActiveUsersStmt: %w", cerr)
+		}
+	}
 	if q.countJobsStmt != nil {
 		if cerr := q.countJobsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing countJobsStmt: %w", cerr)
@@ -388,6 +399,11 @@ func (q *Queries) Close() error {
 	if q.countKeysStmt != nil {
 		if cerr := q.countKeysStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing countKeysStmt: %w", cerr)
+		}
+	}
+	if q.countWorkspacesStmt != nil {
+		if cerr := q.countWorkspacesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countWorkspacesStmt: %w", cerr)
 		}
 	}
 	if q.createJobStmt != nil {
@@ -819,8 +835,10 @@ type Queries struct {
 	changeJobStateStmt           *sql.Stmt
 	clearAlertVerificationsStmt  *sql.Stmt
 	commitSessionStmt            *sql.Stmt
+	countActiveUsersStmt         *sql.Stmt
 	countJobsStmt                *sql.Stmt
 	countKeysStmt                *sql.Stmt
+	countWorkspacesStmt          *sql.Stmt
 	createJobStmt                *sql.Stmt
 	createKeyStmt                *sql.Stmt
 	createWorkspaceStmt          *sql.Stmt
@@ -917,8 +935,10 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		changeJobStateStmt:           q.changeJobStateStmt,
 		clearAlertVerificationsStmt:  q.clearAlertVerificationsStmt,
 		commitSessionStmt:            q.commitSessionStmt,
+		countActiveUsersStmt:         q.countActiveUsersStmt,
 		countJobsStmt:                q.countJobsStmt,
 		countKeysStmt:                q.countKeysStmt,
+		countWorkspacesStmt:          q.countWorkspacesStmt,
 		createJobStmt:                q.createJobStmt,
 		createKeyStmt:                q.createKeyStmt,
 		createWorkspaceStmt:          q.createWorkspaceStmt,

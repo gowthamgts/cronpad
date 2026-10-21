@@ -64,3 +64,5 @@ SELECT id,name,consecutive_failures FROM jobs WHERE workspace_id=? AND deleted_a
 UPDATE users SET email=? WHERE id=?;
 -- name: HasUsers :one
 SELECT EXISTS(SELECT 1 FROM users);
+-- name: CountActiveUsers :one
+SELECT count(*) FROM users WHERE deactivated_at IS NULL;
