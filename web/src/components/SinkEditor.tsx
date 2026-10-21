@@ -1,6 +1,7 @@
-import { Globe, Plus, Terminal, Trash2 } from "lucide-react";
+import { ClipboardPaste, Globe, Plus, Terminal, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { isUrlOrTemplate } from "@/lib/validation";
+import { CurlImportDialog } from "@/components/CurlImportDialog";
 import { Field } from "@/components/Field";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -10,6 +11,15 @@ import { Switch } from "@/components/ui/switch";
 import { TagInput } from "@/components/ui/tag-input";
 import { BUILTIN_CODE_DEFAULTS, splitList, type CodeDefaults, type FormErrors, type JobFormValues } from "@/lib/jobForm";
 import { EXIT_CODE_OPTIONS, RETRY_ON_OPTIONS, SUCCESS_CODE_OPTIONS } from "@/lib/codeOptions";
+
+const TEMPLATE_VARIABLES: [name: string, type: string, about: string][] = [
+  ["{{run.id}}", "string", "Run ID, e.g. run_01JB…"],
+  ["{{run.scheduled_at}}", "string", "Scheduled time, RFC 3339 in UTC"],
+  ["{{job.id}}", "string", "Job ID, e.g. job_01JB…"],
+  ["{{job.name}}", "string", "Job name"],
+  ["{{attempt}}", "integer", "Attempt number, starting at 0"],
+  ["{{secret.NAME}}", "string", "Value of workspace secret NAME"],
+];
 
 interface Props {
   values: JobFormValues;
@@ -24,6 +34,7 @@ interface Props {
 export function SinkEditor({ values, onChange, errors, commandAllowed, defaults = BUILTIN_CODE_DEFAULTS }: Props) {
   const actionName = useId();
   const [urlTouched, setUrlTouched] = useState(false);
+  const [curlOpen, setCurlOpen] = useState(false);
   const w = values.webhook;
   const c = values.command;
   const setWebhook = (patch: Partial<typeof w>) => onChange({ ...values, webhook: { ...w, ...patch } });
@@ -60,6 +71,15 @@ export function SinkEditor({ values, onChange, errors, commandAllowed, defaults 
 
       {values.sinkKind === "webhook" ? (
         <div className="grid gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">Already have a working request? Paste it as a curl command.</p>
+            <Button variant="outline" size="sm" onClick={() => setCurlOpen(true)}><ClipboardPaste /> Import from curl</Button>
+          </div>
+          <CurlImportDialog
+            open={curlOpen}
+            onOpenChange={setCurlOpen}
+            onImport={({ method, url, headers, body, followRedirects }) => { setUrlTouched(true); setWebhook({ method, url, headers, body, followRedirects }); }}
+          />
           <div className="grid gap-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
             <Combobox label="Method" value={w.method} options={["POST", "GET", "PUT", "PATCH", "DELETE"].map((value) => ({value}))} onChange={(method) => setWebhook({method})} />
             <Field id="job-url" label="URL" error={urlError} hint='Use an http:// or https:// URL. Secrets: {{secret.NAME}}.'>{(p) => <Input {...p} type="url" inputMode="url" placeholder="https://api.example.com/hook" value={w.url} onBlur={() => setUrlTouched(true)} onChange={(e) => setWebhook({url:e.target.value})} />}</Field>
@@ -69,7 +89,7 @@ export function SinkEditor({ values, onChange, errors, commandAllowed, defaults 
             <legend className="mb-1 text-sm font-medium">Headers</legend>
             <p className="text-xs text-muted-foreground">Add authentication or other request headers. Values can reference workspace secrets.</p>
             <div className="grid grid-cols-[1fr_1fr_2.25rem] gap-2 text-xs font-medium text-muted-foreground" aria-hidden="true"><span>Header name</span><span>Value</span><span /></div>
-            {w.headers.length === 0 ? <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">No custom headers. Requests include Content-Type: application/json by default.</p> : null}
+            {w.headers.length === 0 ? <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">No custom headers. Without a Content-Type header, requests are sent with Content-Type: application/json.</p> : null}
             {w.headers.map((h, i) => (
               <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
                 <div className="grid gap-1">
@@ -113,8 +133,16 @@ export function SinkEditor({ values, onChange, errors, commandAllowed, defaults 
           {!noBody && jsonStatus && jsonStatus !== "Valid JSON" ? <p role="status" className="text-xs text-muted-foreground">{jsonStatus}</p> : null}
           <details className="text-xs text-muted-foreground">
             <summary className="w-fit cursor-pointer rounded-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">Available template variables</summary>
-            <p className="mt-2 break-words leading-relaxed">{"{{run.id}}, {{run.scheduled_at}}, {{job.id}}, {{job.name}}, {{attempt}}, {{secret.NAME}}"}</p>
-            <p className="mt-1">Use in URLs, header values and body. Attempt numbers start at 0.</p>
+            <dl className="mt-2 grid gap-1">
+              {TEMPLATE_VARIABLES.map(([name, type, about]) => (
+                <div key={name} className="grid grid-cols-[minmax(0,11rem)_4.5rem_minmax(0,1fr)] gap-2 max-sm:grid-cols-[minmax(0,1fr)_4.5rem]">
+                  <dt className="break-all font-mono text-foreground">{name}</dt>
+                  <dd className="font-mono">{type}</dd>
+                  <dd className="max-sm:col-span-2">{about}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-2">Use in URLs, header values and body. Values are inserted as plain text, without JSON escaping: quote strings in a JSON body, leave {"{{attempt}}"} unquoted to send a number.</p>
           </details>
 
           <div className="grid gap-4 sm:grid-cols-2">

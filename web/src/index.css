@@ -81,7 +81,6 @@
   *, ::after, ::before, ::backdrop, ::file-selector-button { border-color: hsl(var(--border)); }
   /* The dashboard is denser than the site: 14px body text. */
   body { @apply min-h-screen text-sm; }
-  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
   input, select, textarea { color-scheme: light; }
   .dark input, .dark select, .dark textarea { color-scheme: dark; }
 }
