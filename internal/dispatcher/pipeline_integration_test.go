@@ -304,8 +304,14 @@ func pipelineLoad(t *testing.T, jobs, seconds int, enforceLag bool, profiles ...
 	if profile == "block" && historyReads.finds.Load() > int64(jobs*2) {
 		t.Errorf("per-occurrence SQLite identity reads returned: %d", historyReads.finds.Load())
 	}
-	if missed != 0 || duplicates != 0 || enforceLag && p99 >= 1000 || delivered.Load() != int64(expected) {
-		t.Fail()
+	if missed != 0 || duplicates != 0 {
+		t.Errorf("missed=%d duplicates=%d, want 0", missed, duplicates)
+	}
+	if enforceLag && p99 >= 1000 {
+		t.Errorf("p99 start lag %dms, want < 1000ms", p99)
+	}
+	if delivered.Load() != int64(expected) {
+		t.Errorf("delivered=%d, want %d", delivered.Load(), expected)
 	}
 }
 func TestPipelineQueueLossAndLostMember(t *testing.T) {
