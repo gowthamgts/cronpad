@@ -15,8 +15,49 @@ concurrency:
 # when tests fail, so a red run still warms the next one. Its path list must match the
 # restore step exactly.
 jobs:
+  # Decides which jobs below are worth running. Skipped jobs count as passing for
+  # required checks, so docs-only and web-only PRs stay mergeable. Pushes to main
+  # (and CI/tooling changes) always run everything.
+  changes:
+    name: Changed paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      go: ${{ steps.filter.outputs.go }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - id: filter
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then
+            printf 'code=true\ngo=true\nweb=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename')
+          echo "$files"
+          code=false go=false web=false
+          while IFS= read -r f; do
+            case "$f" in
+              .github/workflows/ci.yml|.github/actions/*|justfile) code=true go=true web=true ;;
+              *.md|LICENSE|skills/*|.github/scripts/*|.github/workflows/cla.yml|.github/workflows/release.yml) ;;
+              api/openapi.yaml|pnpm-*|package.json) code=true go=true web=true ;;
+              web/*) code=true web=true ;;
+              '') ;;
+              *) code=true go=true ;;
+            esac
+          done <<< "$files"
+          printf 'code=%s\ngo=%s\nweb=%s\n' "$code" "$go" "$web" >> "$GITHUB_OUTPUT"
+
   generated:
     name: Generated code and dependencies
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -40,6 +81,8 @@ jobs:
 
   lint-go:
     name: Go lint
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -59,6 +102,8 @@ jobs:
 
   web:
     name: Web lint and tests
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -69,6 +114,8 @@ jobs:
 
   test-go:
     name: Go tests
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -89,6 +136,8 @@ jobs:
 
   integration:
     name: Integration, load and restore
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -111,6 +160,8 @@ jobs:
 
   browser:
     name: Build, browser smoke and Lighthouse
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
