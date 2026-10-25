@@ -342,10 +342,11 @@ func New(ctx context.Context, c config.Config, edition string, extensions []ext.
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(version.Get(edition))
 	})
-	// DECISION: docs and marketing pages live in the separate landing site; the dashboard host is not indexed.
+	// DECISION: every crawler is allowed, so link-preview bots that honour robots.txt (Twitterbot) can read the
+	// Open Graph tags. Docs and marketing pages live in the separate landing site.
 	r.Get("/robots.txt", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = io.WriteString(w, "User-agent: *\nDisallow: /\n")
+		_, _ = io.WriteString(w, "User-agent: *\nAllow: /\n")
 	})
 	if c.UI.Dashboard {
 		mountDashboard(r, web.Dist(), c.MCP.Path, c.SharedCookieDomain(), c.Server.PublicURL)
