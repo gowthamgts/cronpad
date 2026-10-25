@@ -348,7 +348,7 @@ func New(ctx context.Context, c config.Config, edition string, extensions []ext.
 		_, _ = io.WriteString(w, "User-agent: *\nDisallow: /\n")
 	})
 	if c.UI.Dashboard {
-		mountDashboard(r, web.Dist(), c.MCP.Path, c.SharedCookieDomain())
+		mountDashboard(r, web.Dist(), c.MCP.Path, c.SharedCookieDomain(), c.Server.PublicURL)
 	}
 	for _, e := range extensions {
 		e.Routes(r, d)

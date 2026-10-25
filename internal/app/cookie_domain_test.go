@@ -88,7 +88,7 @@ func TestNoSignedInHintWhenSelfHosted(t *testing.T) {
 func TestDashboardIndexCarriesCookieDomain(t *testing.T) {
 	files := fstest.MapFS{"index.html": {Data: []byte("<!doctype html><html><head><title>x</title></head></html>")}}
 	r := chi.NewRouter()
-	mountDashboard(r, files, "/agent", "example.com")
+	mountDashboard(r, files, "/agent", "example.com", "")
 	body := get(t, r, "/jobs").Body.String()
 	if !strings.Contains(body, `<head>`+"\n    "+`<meta name="cronpad-cookie-domain" content="example.com" />`) {
 		t.Fatalf("missing cookie-domain meta: %s", body)

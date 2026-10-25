@@ -21,8 +21,8 @@ import (
 const dashboardCSP = "default-src 'self'; script-src 'self'; style-src 'self' 'sha256-nzTgYzXYDNe6BAHiiI7NNlfK8n/auuOAhh2t92YvuXo='; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 
 // mountDashboard serves the SPA at root, leaving registered backend routes in control.
-func mountDashboard(r chi.Router, dist fs.FS, mcpPath, cookieDomain string) {
-	handler := dashboardHandler(dist, cookieDomain)
+func mountDashboard(r chi.Router, dist fs.FS, mcpPath, cookieDomain, publicURL string) {
+	handler := dashboardHandler(dist, cookieDomain, publicURL)
 	r.Get("/", handler)
 	// DECISION: permanent redirects preserve old email links and bookmarks, including queries.
 	legacy := func(w http.ResponseWriter, req *http.Request) {
@@ -66,10 +66,14 @@ func mountDashboard(r chi.Router, dist fs.FS, mcpPath, cookieDomain string) {
 // dashboardHandler serves the SPA. In hosted mode (config.SharedCookieDomain), index.html carries the shared
 // cookie domain in a meta tag so
 // public/theme-init.js and lib/theme.ts can share the theme cookie with the public site.
-func dashboardHandler(dist fs.FS, cookieDomain string) http.HandlerFunc {
-	var cookieMeta []byte
+// With server.public_url set, the link-preview image becomes absolute, as Open Graph requires.
+func dashboardHandler(dist fs.FS, cookieDomain, publicURL string) http.HandlerFunc {
+	var cookieMeta, ogImage []byte
 	if cookieDomain != "" {
 		cookieMeta = []byte(`<head>` + "\n    " + `<meta name="cronpad-cookie-domain" content="` + html.EscapeString(cookieDomain) + `" />`)
+	}
+	if publicURL != "" {
+		ogImage = []byte(`content="` + html.EscapeString(strings.TrimRight(publicURL, "/")) + `/og.png"`)
 	}
 	return func(w http.ResponseWriter, req *http.Request) {
 		h := w.Header()
@@ -107,6 +111,9 @@ func dashboardHandler(dist fs.FS, cookieDomain string) http.HandlerFunc {
 		}
 		if cookieMeta != nil {
 			index = bytes.Replace(index, []byte("<head>"), cookieMeta, 1)
+		}
+		if ogImage != nil {
+			index = bytes.ReplaceAll(index, []byte(`content="/og.png"`), ogImage)
 		}
 		h.Set("Content-Type", "text/html; charset=utf-8")
 		h.Set("Cache-Control", "no-cache")

@@ -15,7 +15,7 @@ import (
 
 func dashboardRouter(files fstest.MapFS) http.Handler {
 	r := chi.NewRouter()
-	mountDashboard(r, files, "/agent", "")
+	mountDashboard(r, files, "/agent", "", "")
 	return r
 }
 
@@ -113,5 +113,17 @@ func TestDashboardPreservesBackendRoutes(t *testing.T) {
 	}
 	if w := get(t, dashboardRouter(fstest.MapFS{"index.html": {Data: []byte("spa")}}), "/agent/unknown"); w.Code != http.StatusNotFound {
 		t.Fatalf("custom MCP path -> %d", w.Code)
+	}
+}
+
+func TestDashboardIndexMakesOGImageAbsolute(t *testing.T) {
+	files := fstest.MapFS{"index.html": {Data: []byte(`<head><meta property="og:image" content="/og.png" /></head>`)}}
+	r := chi.NewRouter()
+	mountDashboard(r, files, "/agent", "", "https://app.example.com/")
+	if body := get(t, r, "/").Body.String(); !strings.Contains(body, `content="https://app.example.com/og.png"`) {
+		t.Fatalf("og:image not absolute: %s", body)
+	}
+	if body := get(t, dashboardRouter(files), "/").Body.String(); !strings.Contains(body, `content="/og.png"`) {
+		t.Fatalf("og:image changed without a public URL: %s", body)
 	}
 }
