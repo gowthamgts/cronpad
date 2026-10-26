@@ -100,7 +100,6 @@
 
   .band { @apply bg-band text-band-ink; }
 
-  .usage-ruler { background-image: repeating-linear-gradient(90deg, transparent, transparent calc(10% - 1px), hsl(var(--ink) / 0.3) calc(10% - 1px), hsl(var(--ink) / 0.3) 10%); }
   /* Wide tables scroll inside this wrapper; the page never scrolls sideways. */
   .table-scroll { @apply w-full max-w-full overflow-x-auto; }
   /* A table that already sits in a box keeps the box's border only. */

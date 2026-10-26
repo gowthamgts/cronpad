@@ -309,35 +309,12 @@ test("self-hosted command editor tests, creates and runs a command", async ({ pa
   await expect(page.getByRole("link", { name: /^Run run_.*succeeded/ }).first()).toBeVisible({ timeout: 10_000 });
 });
 
-test("monthly usage states and suspension remain accessible across navigation", async ({ page }) => {
+test("workspace suspension remains accessible across navigation", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  let usage = { month: "2026-10", runs: 80, limit: 100 as number | null, over_quota_policy: "block", reset_at: "2026-11-01T00:00:00Z" };
-  await page.route("**/api/v1/usage", (route) => route.fulfill({ json: usage }));
   await page.goto("/login");
   await page.getByLabel("Name").fill("e2e-usage");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByText("80 / 100 runs this month")).toBeVisible();
-  await expect(page.getByText(/at least 80%/)).toBeVisible();
-  await expectAccessible(page, "usage warning");
-
-  usage = { ...usage, runs: 100 };
-  await page.reload();
-  await expect(page.getByText(/New occurrences are skipped/)).toBeVisible();
-  await expectAccessible(page, "usage blocked");
-
-  usage = { ...usage, runs: 120, over_quota_policy: "allow" };
-  await page.reload();
-  await expect(page.getByText(/New occurrences are counted as overage/)).toBeVisible();
-  await expectAccessible(page, "usage overage");
-
-  usage = { ...usage, limit: null };
   await page.getByRole("link", { name: "Settings", exact: true }).click();
-  await page.reload();
-  await page.getByRole("tab", { name: "Workspace" }).click();
-  await expect(page.getByText("120 runs this month · unlimited")).toBeVisible();
-  await expect(page.getByRole("progressbar")).toHaveCount(0);
-  await expectAccessible(page, "usage unlimited");
-
   await page.route("**/api/v1/api-keys", (route) => route.request().method() === "POST"
     ? route.fulfill({ status: 403, json: { error: { code: "workspace_suspended", message: "Workspace suspended", fields: { reason: "Operator review" } } } })
     : route.continue());

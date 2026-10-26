@@ -1,10 +1,9 @@
 import { IntegrateCard } from "@/components/IntegrateCard";
 import { LatencyMethod, LatencyRuler } from "@/components/LatencyRuler";
 import { InfoTip } from "@/components/ui/info-tip";
-import { UsageBar, WorkspaceUsage, usageStatus } from "@/components/UsageMeter";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useActiveJobs, useRuns, useStats, useUsage } from "@/api/hooks";
+import { useActiveJobs, useRuns, useStats } from "@/api/hooks";
 import { RANGES, RunsChart, bucketRuns, type RangeKey } from "@/components/RunsChart";
 import { EmptyState, ErrorState, Loading, PageHeader, StatStrip, type Stat } from "@/components/states";
 import { Segmented } from "@/components/ui/segmented";
@@ -33,7 +32,6 @@ export function DashboardPage() {
   ]);
   const { span } = RANGES[range];
   const stats = useStats(range);
-  const usage = useUsage();
   const upcoming = useActiveJobs();
   // The chart needs bucketed counts, which the stats endpoint doesn't provide: page through the range's runs.
   const [anchor] = useState(() => Date.now());
@@ -58,7 +56,6 @@ export function DashboardPage() {
     return (
       <>
         <PageHeader title="dashboard" description="Your schedules and measured runs." />
-        <WorkspaceUsage />
         <EmptyState
           title="Create your first job"
           description="Pick a schedule and point it at a webhook to record your first run."
@@ -80,22 +77,11 @@ export function DashboardPage() {
     .filter((j) => j.next_run_at && new Date(j.next_run_at).getTime() <= horizon)
     .sort((a, b) => new Date(a.next_run_at!).getTime() - new Date(b.next_run_at!).getTime());
 
-  const u = usage.data;
-  const quota = u ? usageStatus(u) : null;
   const kpis: Stat[] = [
     { label: `runs · ${range}`, value: s.runs.total.toLocaleString("en"), hint: s.runs.sla_breached > 0 ? `${s.runs.sla_breached.toLocaleString("en")} started late` : "none started late" },
     { label: "success rate", value: percent(s.runs.succeeded, s.runs.total), hint: `${s.runs.succeeded.toLocaleString("en")} succeeded` },
     { label: "failed", value: s.runs.failed.toLocaleString("en"), tone: s.runs.failed > 0 ? "danger" : undefined, hint: s.failing_jobs.length > 0 ? `${s.failing_jobs.length} ${s.failing_jobs.length === 1 ? "job" : "jobs"} failing now` : "no job failing now" },
     { label: "p95 start lag", value: s.runs.total > 0 ? formatDuration(s.start_lag_ms.p95) : "—", hint: s.runs.total > 0 ? `typical ${formatDuration(s.start_lag_ms.p50)}` : "no runs measured" },
-    u && quota
-      ? {
-          label: "this month",
-          value: u.runs.toLocaleString("en"),
-          tone: quota.exceeded ? "danger" : quota.warning ? "warning" : undefined,
-          hint: <>{quota.limited ? `of ${u.limit!.toLocaleString("en")} runs` : "runs · unlimited"}</>,
-          extra: quota.limited ? <UsageBar usage={u} /> : undefined,
-        }
-      : { label: "this month", value: usage.isError ? "—" : "…", hint: usage.isError ? "usage unavailable" : "loading usage" },
   ];
 
   return (
@@ -123,8 +109,7 @@ export function DashboardPage() {
         <h2 id="overview-heading" className="sr-only">
           Overview, last {span}
         </h2>
-        <StatStrip label={`Overview, last ${span}`} items={kpis} columns={5} />
-        {quota?.message ? <p role="status" className={`text-sm ${quota.exceeded ? "font-medium text-destructive" : "text-ink"}`}>{quota.message}</p> : null}
+        <StatStrip label={`Overview, last ${span}`} items={kpis} columns={4} />
         {s.jobs.disabled > 0 ? (
           <p role="status" className="text-sm text-ink">
             <Link to="/jobs" search={{ state: "disabled" }} className="font-medium text-link underline-offset-4 hover:underline">

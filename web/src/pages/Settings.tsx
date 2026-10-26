@@ -1,5 +1,4 @@
 import { ConfirmAction } from "@/components/ConfirmAction";
-import { WorkspaceUsage } from "@/components/UsageMeter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { KeyRound, Plus, Trash2 } from "lucide-react";
@@ -42,7 +41,6 @@ export function SettingsPage() {
           <Secrets />
         </TabsContent>
         <TabsContent value="workspace">
-          <WorkspaceUsage />
           <WorkspaceSettings />
         </TabsContent>
       </Tabs>
