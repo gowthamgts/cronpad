@@ -3,20 +3,6 @@ import type { components, paths } from "./schema";
 
 export type Schemas = components["schemas"];
 
-export interface Usage {
-  month: string;
-  runs: number;
-  limit: number | null;
-  over_quota_policy: "block" | "allow";
-  reset_at: string;
-}
-
-// DECISION: keep the parallel backend's usage contract typed locally until the
-// generated schema includes it; use the same transport and session middleware.
-type UsagePaths = {
-  "/api/v1/usage": { get: { responses: { 200: { content: { "application/json": Usage } } } } };
-};
-
 export const SUSPENSION_EVENT = "cronpad-suspension";
 const suspensionKey = (workspace: string | null) => `cronpad-suspension:${workspace ?? "personal"}`;
 
@@ -110,7 +96,7 @@ export class ApiError extends Error {
 }
 
 export function createApi(options: { baseUrl?: string; fetch?: typeof fetch } = {}) {
-  const client = createClient<paths & UsagePaths>({
+  const client = createClient<paths>({
     baseUrl: options.baseUrl ?? window.location.origin,
     // Resolved lazily so tests can stub window.fetch after import.
     fetch: options.fetch ?? ((request) => window.fetch(request)),

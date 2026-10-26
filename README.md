@@ -4,7 +4,7 @@ A single-binary durable cronjob scheduler for webhooks and commands. One Go bina
 dashboard and MCP server; two SQLite files keep durable state, and a third,
 rebuildable SQLite file is the delivery queue. Nothing else needs to run.
 
-You can signup for a free account at [cronpad.com](https://cronpad.com) and test it for yourself. Demo is available at [demo.cronpad.com](https://demo.cronpad.com).
+You can signup for a free account at [cronpad.com](https://cronpad.com) and test it for yourself.
 
 ## Self-hosting
 

@@ -71,7 +71,7 @@ function Palette({ close, onSignOut, onShowShortcuts }: { close: () => void; onS
       { id: "alerts-rules", group: "go to", label: "Alerts · rules", icon: Bell, keywords: "notifications events conditions", run: go("/alerts", { tab: "rules" }) },
       { id: "settings", group: "go to", label: "Settings · API keys", icon: Settings, keywords: "tokens access cli", run: go("/settings") },
       { id: "settings-secrets", group: "go to", label: "Settings · secrets", icon: Settings, keywords: "env variables tokens", run: go("/settings", { tab: "secrets" }) },
-      { id: "settings-workspace", group: "go to", label: "Settings · workspace", icon: Settings, keywords: "name slug usage monthly limit", run: go("/settings", { tab: "workspace" }) },
+      { id: "settings-workspace", group: "go to", label: "Settings · workspace", icon: Settings, keywords: "name slug", run: go("/settings", { tab: "workspace" }) },
       { id: "theme-light", group: "actions", label: "Theme: light", icon: Sun, keywords: "appearance mode", run: () => applyThemePreference("light") },
       { id: "theme-dark", group: "actions", label: "Theme: dark", icon: Moon, keywords: "appearance mode night", run: () => applyThemePreference("dark") },
       { id: "theme-system", group: "actions", label: "Theme: system", icon: Monitor, keywords: "appearance mode auto", run: () => applyThemePreference("system") },
