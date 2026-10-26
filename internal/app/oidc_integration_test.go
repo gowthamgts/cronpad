@@ -106,7 +106,7 @@ staticPasswords:
 	dir := t.TempDir()
 	c.Database.Path = filepath.Join(dir, "c.db")
 	c.Database.HistoryPath = filepath.Join(dir, "h.db")
-	a, err := New(ctx, c, "oss", nil, clockwork.NewRealClock(), slog.New(slog.DiscardHandler))
+	a, err := New(ctx, c, "oss", nil, nil, clockwork.NewRealClock(), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}

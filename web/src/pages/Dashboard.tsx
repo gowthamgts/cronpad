@@ -1,6 +1,7 @@
 import { IntegrateCard } from "@/components/IntegrateCard";
 import { LatencyMethod, LatencyRuler } from "@/components/LatencyRuler";
 import { InfoTip } from "@/components/ui/info-tip";
+import { GettingStartedNotices, OverviewNotices, useOverviewStats } from "@/ext/slots";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useActiveJobs, useRuns, useStats } from "@/api/hooks";
@@ -32,6 +33,7 @@ export function DashboardPage() {
   ]);
   const { span } = RANGES[range];
   const stats = useStats(range);
+  const extraStats = useOverviewStats();
   const upcoming = useActiveJobs();
   // The chart needs bucketed counts, which the stats endpoint doesn't provide: page through the range's runs.
   const [anchor] = useState(() => Date.now());
@@ -56,6 +58,7 @@ export function DashboardPage() {
     return (
       <>
         <PageHeader title="dashboard" description="Your schedules and measured runs." />
+        <GettingStartedNotices />
         <EmptyState
           title="Create your first job"
           description="Pick a schedule and point it at a webhook to record your first run."
@@ -82,6 +85,7 @@ export function DashboardPage() {
     { label: "success rate", value: percent(s.runs.succeeded, s.runs.total), hint: `${s.runs.succeeded.toLocaleString("en")} succeeded` },
     { label: "failed", value: s.runs.failed.toLocaleString("en"), tone: s.runs.failed > 0 ? "danger" : undefined, hint: s.failing_jobs.length > 0 ? `${s.failing_jobs.length} ${s.failing_jobs.length === 1 ? "job" : "jobs"} failing now` : "no job failing now" },
     { label: "p95 start lag", value: s.runs.total > 0 ? formatDuration(s.start_lag_ms.p95) : "—", hint: s.runs.total > 0 ? `typical ${formatDuration(s.start_lag_ms.p50)}` : "no runs measured" },
+    ...extraStats,
   ];
 
   return (
@@ -109,7 +113,8 @@ export function DashboardPage() {
         <h2 id="overview-heading" className="sr-only">
           Overview, last {span}
         </h2>
-        <StatStrip label={`Overview, last ${span}`} items={kpis} columns={4} />
+        <StatStrip label={`Overview, last ${span}`} items={kpis} columns={kpis.length > 4 ? 5 : 4} />
+        <OverviewNotices />
         {s.jobs.disabled > 0 ? (
           <p role="status" className="text-sm text-ink">
             <Link to="/jobs" search={{ state: "disabled" }} className="font-medium text-link underline-offset-4 hover:underline">

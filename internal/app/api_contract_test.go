@@ -111,7 +111,7 @@ func newFixtureWith(t *testing.T, tweak func(*config.Config)) *fixture {
 	dir := t.TempDir()
 	c.Database.Path = filepath.Join(dir, "c.db")
 	c.Database.HistoryPath = filepath.Join(dir, "h.db")
-	a, e := New(ctx, c, "oss", nil, clockwork.NewRealClock(), slog.New(slog.DiscardHandler))
+	a, e := New(ctx, c, "oss", nil, nil, clockwork.NewRealClock(), slog.New(slog.DiscardHandler))
 	if e != nil {
 		t.Fatal(e)
 	}

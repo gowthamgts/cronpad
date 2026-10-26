@@ -2,13 +2,16 @@ package app
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jonboulle/clockwork"
 
 	"github.com/gowthamgts/cronpad/internal/config"
 )
@@ -125,5 +128,23 @@ func TestDashboardIndexMakesOGImageAbsolute(t *testing.T) {
 	}
 	if body := get(t, dashboardRouter(files), "/").Body.String(); !strings.Contains(body, `content="/og.png"`) {
 		t.Fatalf("og:image changed without a public URL: %s", body)
+	}
+}
+
+func TestDashboardOverride(t *testing.T) {
+	c, err := config.Load(t.Context(), "", nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	c.Database.Path = filepath.Join(dir, "control.db")
+	c.Database.HistoryPath = filepath.Join(dir, "history.db")
+	a, err := New(t.Context(), c, "oss", nil, fstest.MapFS{"index.html": {Data: []byte("<head></head>other build")}}, clockwork.NewFakeClock(), slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = a.Close() }()
+	if w := get(t, a.Handler, "/"); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "other build") {
+		t.Fatalf("/ -> %d %s", w.Code, w.Body)
 	}
 }

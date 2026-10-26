@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"math/rand"
 	"net"
@@ -109,7 +110,8 @@ type App struct {
 }
 
 // New opens both databases, migrates core and extensions, then mounts routes.
-func New(ctx context.Context, c config.Config, edition string, extensions []ext.Extension, clk clock.Clock, log *slog.Logger) (*App, error) {
+// A nil dashboard serves the embedded build of web/.
+func New(ctx context.Context, c config.Config, edition string, extensions []ext.Extension, dashboard fs.FS, clk clock.Clock, log *slog.Logger) (*App, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
@@ -349,7 +351,10 @@ func New(ctx context.Context, c config.Config, edition string, extensions []ext.
 		_, _ = io.WriteString(w, "User-agent: *\nAllow: /\n")
 	})
 	if c.UI.Dashboard {
-		mountDashboard(r, web.Dist(), c.MCP.Path, c.SharedCookieDomain(), c.Server.PublicURL)
+		if dashboard == nil {
+			dashboard = web.Dist()
+		}
+		mountDashboard(r, dashboard, c.MCP.Path, c.SharedCookieDomain(), c.Server.PublicURL)
 	}
 	for _, e := range extensions {
 		e.Routes(r, d)

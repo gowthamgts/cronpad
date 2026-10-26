@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -28,6 +29,7 @@ import (
 type options struct {
 	edition    string
 	extensions []ext.Extension
+	dashboard  fs.FS
 }
 
 // Option configures a binary before its CLI is executed.
@@ -37,6 +39,10 @@ type Option func(*options)
 func WithExtension(e ext.Extension) Option {
 	return func(o *options) { o.extensions = append(o.extensions, e) }
 }
+
+// WithDashboard serves a different dashboard build, rooted at its index.html, instead of the
+// embedded one. It must keep the embedded build's asset layout and CSP-safe markup.
+func WithDashboard(dist fs.FS) Option { return func(o *options) { o.dashboard = dist } }
 
 // WithEdition sets the edition reported in version metadata (default oss).
 func WithEdition(name string) Option { return func(o *options) { o.edition = name } }
@@ -85,7 +91,7 @@ func command(opts ...Option) *cobra.Command {
 			_ = telemetryRuntime.Shutdown(shutdown)
 		}()
 		log := logx.Setup(logx.Config{Level: cfg.Logging.Level, Format: cfg.Logging.Format, AddSource: cfg.Logging.AddSource, Service: cfg.Telemetry.ServiceName, Version: version.Version}, os.Stdout, telemetryRuntime.Logs)
-		a, err := app.New(ctx, cfg, o.edition, o.extensions, clock.New(), log)
+		a, err := app.New(ctx, cfg, o.edition, o.extensions, o.dashboard, clock.New(), log)
 		if err != nil {
 			return err
 		}
