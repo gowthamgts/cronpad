@@ -57,7 +57,7 @@ func TestRunOwnsExtensionShutdown(t *testing.T) {
 			if fail {
 				e.err = sentinel
 			}
-			a, err := New(ctx, c, "oss", []ext.Extension{e}, clockwork.NewFakeClock(), slog.New(slog.DiscardHandler))
+			a, err := New(ctx, c, "oss", []ext.Extension{e}, nil, clockwork.NewFakeClock(), slog.New(slog.DiscardHandler))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -106,7 +106,7 @@ func TestReadinessReportsDependenciesAndDispatcher(t *testing.T) {
 	c.Database.HistoryPath = filepath.Join(dir, "history.db")
 	c.Server.Addr = "127.0.0.1:0"
 	clk := clockwork.NewFakeClock()
-	a, err := New(ctx, c, "oss", nil, clk, slog.New(slog.DiscardHandler))
+	a, err := New(ctx, c, "oss", nil, nil, clk, slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}

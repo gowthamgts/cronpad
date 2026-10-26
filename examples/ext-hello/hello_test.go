@@ -59,7 +59,7 @@ func TestPublicExtension(t *testing.T) {
 	}
 	c.Database.Path = filepath.Join(dir, "control.db")
 	c.Database.HistoryPath = filepath.Join(dir, "history.db")
-	a, err := app.New(ctx, c, "hello", []ext.Extension{e}, clockwork.NewFakeClock(), logger)
+	a, err := app.New(ctx, c, "hello", []ext.Extension{e}, nil, clockwork.NewFakeClock(), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestV2Hooks(t *testing.T) {
 	dir := t.TempDir()
 	c.Database.Path = filepath.Join(dir, "c.db")
 	c.Database.HistoryPath = filepath.Join(dir, "h.db")
-	a, err := app.New(ctx, c, "hello", []ext.Extension{e}, clockwork.NewRealClock(), slog.New(slog.DiscardHandler))
+	a, err := app.New(ctx, c, "hello", []ext.Extension{e}, nil, clockwork.NewRealClock(), slog.New(slog.DiscardHandler))
 	if err != nil {
 		t.Fatal(err)
 	}

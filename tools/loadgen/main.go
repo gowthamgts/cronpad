@@ -98,7 +98,7 @@ func run() error {
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	otel.SetMeterProvider(provider)
 	defer func() { _ = provider.Shutdown(context.WithoutCancel(ctx)) }()
-	a, e := app.New(ctx, c, "oss", nil, clk, slog.New(slog.DiscardHandler))
+	a, e := app.New(ctx, c, "oss", nil, nil, clk, slog.New(slog.DiscardHandler))
 	if e != nil {
 		return e
 	}

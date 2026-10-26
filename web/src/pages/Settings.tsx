@@ -1,4 +1,5 @@
 import { ConfirmAction } from "@/components/ConfirmAction";
+import { WorkspaceSettingsTop } from "@/ext/slots";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { KeyRound, Plus, Trash2 } from "lucide-react";
@@ -41,6 +42,7 @@ export function SettingsPage() {
           <Secrets />
         </TabsContent>
         <TabsContent value="workspace">
+          <WorkspaceSettingsTop />
           <WorkspaceSettings />
         </TabsContent>
       </Tabs>
