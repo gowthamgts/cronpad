@@ -11,7 +11,7 @@ RUN pnpm --dir web install --frozen-lockfile
 COPY web web
 RUN pnpm --dir web build
 
-FROM --platform=$BUILDPLATFORM golang:1.27.2 AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.3 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
