@@ -1,10 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Navigate, useNavigate } from "@tanstack/react-router";
+import { LogIn } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { ApiError, devLogin } from "@/api/client";
 import { useFeatures } from "@/api/hooks";
 import { Field } from "@/components/Field";
 import { Logo } from "@/components/Logo";
+import { ProviderIcon } from "@/components/ProviderIcon";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ErrorState, Loading } from "@/components/states";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -99,6 +101,7 @@ export function LoginPage({ setup = false, redirect, error: refusal }: LoginPage
             {features.isError ? <ErrorState error={features.error} retry={() => void features.refetch()} /> : null}
             {providers.map((p) => (
               <a key={p} href={`/auth/${p}/login`} className={buttonVariants({ variant: "outline", size: "lg" })}>
+                <ProviderIcon provider={p} />
                 Continue with {p === "oidc:default" ? (features.data?.auth.oidc_display_name || "SSO") : (PROVIDER_LABELS[p] ?? p)}
               </a>
             ))}
@@ -113,6 +116,7 @@ export function LoginPage({ setup = false, redirect, error: refusal }: LoginPage
                   {(p) => <Input {...p} autoComplete="username" value={name} onChange={(e) => setName(e.target.value)} />}
                 </Field>
                 <Button type="submit" disabled={busy}>
+                  <LogIn aria-hidden="true" />
                   {busy ? "Signing in…" : "Sign in"}
                 </Button>
               </form>
