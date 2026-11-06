@@ -3,8 +3,9 @@ import { LatencyMethod, LatencyRuler } from "@/components/LatencyRuler";
 import { InfoTip } from "@/components/ui/info-tip";
 import { GettingStartedNotices, OverviewNotices, useOverviewStats } from "@/ext/slots";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { useActiveJobs, useRuns, useStats } from "@/api/hooks";
+import { useMemo } from "react";
+import { useActiveJobs, useStats } from "@/api/hooks";
+import { useRunWindow } from "@/api/runWindow";
 import { RANGES, RunsChart, bucketRuns, type RangeKey } from "@/components/RunsChart";
 import { EmptyState, ErrorState, Loading, PageHeader, StatStrip, type Stat } from "@/components/states";
 import { Segmented } from "@/components/ui/segmented";
@@ -16,8 +17,6 @@ import { formatDuration, percent } from "@/lib/format";
 import { usePageTitle } from "@/lib/usePageTitle";
 import { usePageShortcuts } from "@/lib/shortcuts";
 
-// The chart pages through runs (no time-series endpoint yet); cap the fetch so 30d stays light.
-const MAX_RUN_PAGES = 10;
 const UNIT_TITLE: Record<RangeKey, string> = { "24h": "runs per hour", "7d": "runs per 6 hours", "30d": "runs per day" };
 
 export function DashboardPage() {
@@ -35,19 +34,11 @@ export function DashboardPage() {
   const stats = useStats(range);
   const extraStats = useOverviewStats();
   const upcoming = useActiveJobs();
-  // The chart needs bucketed counts, which the stats endpoint doesn't provide: page through the range's runs.
-  const [anchor] = useState(() => Date.now());
-  const since = new Date(anchor - RANGES[range].count * RANGES[range].size).toISOString();
-  const runs = useRuns({ from: since }, 200, { refetchInterval: 30_000 });
-  const pages = runs.data?.pages.length ?? 0;
-  useEffect(() => {
-    if (runs.hasNextPage && !runs.isFetchingNextPage && !runs.isPlaceholderData && pages < MAX_RUN_PAGES) void runs.fetchNextPage();
-  }, [runs, pages]);
-  const loaded = runs.data?.pages.flatMap((p) => p.data) ?? [];
-  // When the cap stops paging, everything older than the oldest fetched run is unknown, not zero.
-  const loadedFrom = runs.hasNextPage && pages >= MAX_RUN_PAGES && loaded.length > 0 ? Math.min(...loaded.map((r) => new Date(r.scheduled_at).getTime())) : undefined;
-
-  const buckets = useMemo(() => bucketRuns(runs.data?.pages.flatMap((p) => p.data) ?? [], undefined, range), [runs.data, range]);
+  // The chart needs bucketed counts, which the stats endpoint doesn't provide; closed buckets are cached.
+  const runs = useRunWindow(range, RANGES[range]);
+  const loadedRuns = runs.data?.runs;
+  const loadedFrom = runs.data?.loadedFrom;
+  const buckets = useMemo(() => bucketRuns(loadedRuns ?? [], undefined, range), [loadedRuns, range]);
 
   if (stats.isPending) return <Loading label="Loading dashboard" />;
   if (stats.isError) return <ErrorState error={stats.error} retry={() => void stats.refetch()} />;
@@ -178,7 +169,7 @@ export function DashboardPage() {
                       {j.name}
                     </Link>
                     <span className="text-sm text-ink-soft">{j.consecutive_failures} {j.consecutive_failures === 1 ? "failure" : "failures"} in a row
-                      {(() => { const failure = runs.data?.pages.flatMap((p) => p.data).find((r) => r.job_id === j.id && r.status === "failed"); const timezone = upcoming.data?.data.find((job) => job.id === j.id)?.schedule.timezone; return failure ? <DualTime className="block text-xs" iso={failure.scheduled_at} timeZone={timezone} /> : null; })()}
+                      {(() => { const failure = loadedRuns?.find((r) => r.job_id === j.id && r.status === "failed"); const timezone = upcoming.data?.data.find((job) => job.id === j.id)?.schedule.timezone; return failure ? <DualTime className="block text-xs" iso={failure.scheduled_at} timeZone={timezone} /> : null; })()}
                     </span>
                   </li>
                 ))}
