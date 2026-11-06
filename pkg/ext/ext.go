@@ -47,6 +47,12 @@ type StatsReader interface {
 type LimitsRegistry interface {
 	Register(name string, provider any) error
 }
+
+// EntitlementsRegistry registers feature providers. A feature is on when any provider
+// reports it, and results are cached briefly. A duplicate name is an error.
+type EntitlementsRegistry interface {
+	Register(name string, provider Entitlements) error
+}
 type SessionReader interface{ SignedIn(r *http.Request) bool }
 type Mailer interface {
 	Send(ctx context.Context, to, subject, body string) error
@@ -68,8 +74,10 @@ type Deps struct {
 	Auth AuthRegistry
 	// Authz replaces the default authorizer; the last registration wins.
 	Authz AuthzRegistry
-	// Entitlements exposes optional feature availability; OSS always returns false.
+	// Entitlements exposes optional feature availability; false until a provider is registered.
 	Entitlements Entitlements
+	// Features registers entitlement providers for Entitlements.
+	Features EntitlementsRegistry
 	// Directory provisions audited users and memberships through core services.
 	Directory Directory
 	// Audit subscribes to committed audit events asynchronously.

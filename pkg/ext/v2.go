@@ -97,7 +97,9 @@ const (
 	HA            Feature = "ha"
 )
 
-// Entitlements answers whether a workspace has a feature. OSS always returns false.
+// Entitlements answers whether a workspace has a feature. It is false unless a
+// provider registered through Deps.Features grants it, so OSS always returns false.
+// The same interface is what a provider implements.
 type Entitlements interface {
 	Has(context.Context, string, Feature) bool
 }

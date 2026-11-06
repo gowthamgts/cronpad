@@ -31,6 +31,7 @@ import (
 
 	"github.com/gowthamgts/cronpad/internal/alert"
 	"github.com/gowthamgts/cronpad/internal/dispatcher"
+	"github.com/gowthamgts/cronpad/internal/entitlements"
 	"github.com/gowthamgts/cronpad/internal/events"
 	"github.com/gowthamgts/cronpad/internal/results"
 	"github.com/gowthamgts/cronpad/internal/sink"
@@ -259,10 +260,12 @@ func New(ctx context.Context, c config.Config, edition string, extensions []ext.
 	audit := auth.NewAuditBus(log)
 	a.audit = audit
 	repository.SetAuditListener(audit.Publish, audit.Active)
-	admin := &auth.Administration{Auth: authentication, Store: repository, Clock: clk, Limits: quotas}
+	features := &entitlements.Registry{Clock: clk}
+	admin := &auth.Administration{Auth: authentication, Store: repository, Clock: clk, Limits: quotas, Entitlements: features}
 	d.Auth = authentication.Registry
 	d.Authz = authentication.Authz
-	d.Entitlements = auth.NoEntitlements{}
+	d.Entitlements = features
+	d.Features = features
 	d.Directory = admin
 	d.Audit = audit
 	lifecycle := events.NewSubscribers(log)

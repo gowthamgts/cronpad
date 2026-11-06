@@ -194,6 +194,11 @@ func TestV2Hooks(t *testing.T) {
 	if err = e.Hooks.Workspaces.Unsuspend(ctx, ws); err != nil {
 		t.Fatal(err)
 	}
+	for _, f := range []ext.Feature{ext.SAML, ext.OIDCWorkspace, ext.SCIM, ext.RBAC, ext.AuditStream, ext.HA} {
+		if got := e.Hooks.Entitlements.Has(ctx, ws, f); got != (f == ext.AuditStream) {
+			t.Fatalf("pro workspace entitled to %s = %v", f, got)
+		}
+	}
 	var plan string
 	if err = a.DBs.Control.Reader.QueryRowContext(ctx, "SELECT plan FROM workspaces WHERE id=?", ws).Scan(&plan); err != nil || plan != "pro" {
 		t.Fatal(plan, err)

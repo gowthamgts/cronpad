@@ -3,6 +3,7 @@ package hello
 
 import (
 	"context"
+	"database/sql"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -52,7 +53,19 @@ func (e *Extension) Routes(r chi.Router, d ext.Deps) {
 		default:
 		}
 	})
+	if err := d.Features.Register("hello", proFeatures{db: d.Control}); err != nil {
+		d.Log.Error("register entitlements", "error", err)
+	}
 	r.Get("/hello", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(e.Config.Greeting + "\n")) })
+}
+
+// proFeatures demonstrates an entitlements provider: audit streaming for "pro" workspaces.
+type proFeatures struct{ db *sql.DB }
+
+func (p proFeatures) Has(ctx context.Context, ws string, f ext.Feature) bool {
+	var plan string
+	err := p.db.QueryRowContext(ctx, `SELECT plan FROM workspaces WHERE id = ?`, ws).Scan(&plan)
+	return err == nil && plan == "pro" && f == ext.AuditStream
 }
 func (*Extension) Start(ctx context.Context, _ ext.Deps) error { <-ctx.Done(); return nil }
 

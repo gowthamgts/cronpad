@@ -13,6 +13,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/gowthamgts/cronpad/internal/entitlements"
 	"github.com/gowthamgts/cronpad/internal/id"
 	"github.com/gowthamgts/cronpad/internal/limits"
 	"github.com/gowthamgts/cronpad/internal/logx"
@@ -21,11 +22,6 @@ import (
 	"github.com/gowthamgts/cronpad/internal/store/sqlitegen"
 	"github.com/gowthamgts/cronpad/pkg/ext"
 )
-
-// NoEntitlements is the OSS feature policy.
-type NoEntitlements struct{}
-
-func (NoEntitlements) Has(context.Context, string, ext.Feature) bool { return false }
 
 // AuditBus owns a bounded, nonblocking queue of committed audit events.
 // DECISION: overflow drops the newest event and emits a warning. Core history is
@@ -102,6 +98,8 @@ type Administration struct {
 	Store  store.Store
 	Clock  clockwork.Clock
 	Limits *limits.Registry
+	// Entitlements, when set, is invalidated with Limits on a plan change.
+	Entitlements *entitlements.Registry
 }
 
 func (a *Administration) audit(ctx context.Context, ws, action, target string, details any) error {
@@ -229,6 +227,9 @@ func (a *Administration) SetPlan(ctx context.Context, ws, plan string) error {
 	}
 	if a.Limits != nil {
 		a.Limits.Invalidate(ws)
+	}
+	if a.Entitlements != nil {
+		a.Entitlements.Invalidate(ws)
 	}
 	return a.audit(ctx, ws, "workspace.plan", ws, map[string]string{"plan": plan})
 }
