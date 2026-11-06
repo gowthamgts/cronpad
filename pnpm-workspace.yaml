@@ -4,3 +4,7 @@ packages:
 
 allowBuilds:
   esbuild: true
+
+overrides:
+  # eslint's @eslint/config-array asks for ^10, but GHSA-g3hv-75wg-m249 is only fixed in 11.0.1.
+  minimatch@>=10 <11.0.1: ^11.0.1
