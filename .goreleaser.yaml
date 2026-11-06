@@ -27,5 +27,23 @@ sboms:
       - '${artifact}.sbom.spdx.json'
 release:
   prerelease: auto
+# Commit subjects start with a lowercase verb, so groups key on the first word; the first matching group wins.
 changelog:
   sort: asc
+  filters:
+    exclude: ['^Merge pull request', '^merge ']
+  groups:
+    - title: Features
+      regexp: '^(add|expose|support|allow|introduce|enable)\b'
+      order: 0
+    - title: Fixes
+      regexp: '^fix\b'
+      order: 1
+    - title: Performance
+      regexp: '^(speed up|reduce|cache)\b'
+      order: 2
+    - title: Dependencies
+      regexp: '^(bump|upgrade|update \S+ to)\b'
+      order: 3
+    - title: Other changes
+      order: 999
