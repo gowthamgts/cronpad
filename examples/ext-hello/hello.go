@@ -54,7 +54,7 @@ func (e *Extension) Routes(r chi.Router, d ext.Deps) {
 		}
 	})
 	if err := d.Features.Register("hello", proFeatures{db: d.Control}); err != nil {
-		d.Log.Error("register entitlements", "error", err)
+		d.Log.ErrorContext(context.Background(), "register entitlements", "error", err)
 	}
 	r.Get("/hello", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(e.Config.Greeting + "\n")) })
 }

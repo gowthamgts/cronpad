@@ -51,7 +51,8 @@ func TestHasAnyProviderGrantsAndCaches(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := t.Context()
-	if !r.Has(ctx, "ws", ext.SCIM) || !r.Has(ctx, "ws", ext.SCIM) || p.calls != 1 {
+	first, cached := r.Has(ctx, "ws", ext.SCIM), r.Has(ctx, "ws", ext.SCIM)
+	if !first || !cached || p.calls != 1 {
 		t.Fatalf("calls=%d", p.calls)
 	}
 	if r.Has(ctx, "ws", ext.SAML) || r.Has(ctx, "ws2", ext.SCIM) {
