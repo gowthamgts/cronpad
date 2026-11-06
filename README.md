@@ -6,6 +6,11 @@ rebuildable SQLite file is the delivery queue. Nothing else needs to run.
 
 You can signup for a free account at [cronpad.com](https://cronpad.com) and test it for yourself.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dashboard-dark.png">
+  <img alt="cronpad dashboard showing runs per hour, success rate, start lag, failing jobs and upcoming runs" src="docs/screenshots/dashboard-light.png">
+</picture>
+
 ## Self-hosting
 
 For self-hosting, follow the Cronpad website's [installation guide](https://cronpad.com/docs/self-hosting/installation),
