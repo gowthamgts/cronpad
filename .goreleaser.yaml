@@ -30,6 +30,7 @@ release:
 # Commit subjects start with a lowercase verb, so groups key on the first word; the first matching group wins.
 changelog:
   sort: asc
+  abbrev: 7
   filters:
     exclude: ['^Merge pull request', '^merge ']
   groups:
