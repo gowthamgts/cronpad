@@ -8,6 +8,7 @@ import { Sparkline } from "@/components/Sparkline";
 import { StatusPill } from "@/components/StatusPill";
 import { createJobCurl, usePublicUrl } from "@/components/curl";
 import { EmptyState, ErrorState, Loading, PageHeader } from "@/components/states";
+import { ApiKeyNote, JobTemplates } from "@/components/JobTemplates";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Combobox from "@/components/ui/combobox";
@@ -110,14 +111,11 @@ export function JobsPage() {
         ) : (
           <EmptyState
             title="No jobs yet"
-            description="Create a job to run a webhook on a schedule."
-            action={
-              <Link to="/jobs/new" className={buttonVariants()}>
-                New job
-              </Link>
-            }
+            description="Pick a starting point; the schedule is filled in, so all that's left is the URL or command to run."
+            action={<JobTemplates />}
             curl={createJobCurl(base)}
             label="create job command"
+            apiNote={<ApiKeyNote />}
           />
         )
       ) : null}

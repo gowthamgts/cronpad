@@ -1,4 +1,5 @@
 import { IntegrateCard } from "@/components/IntegrateCard";
+import { ApiKeyNote, JobTemplates } from "@/components/JobTemplates";
 import { LatencyMethod, LatencyRuler } from "@/components/LatencyRuler";
 import { InfoTip } from "@/components/ui/info-tip";
 import { GettingStartedNotices, OverviewNotices, useOverviewStats } from "@/ext/slots";
@@ -52,14 +53,11 @@ export function DashboardPage() {
         <GettingStartedNotices />
         <EmptyState
           title="Create your first job"
-          description="Pick a schedule and point it at a webhook to record your first run."
-          action={
-            <Link to="/jobs/new" className={buttonVariants()}>
-              New job
-            </Link>
-          }
+          description="Pick a starting point; the schedule is filled in, so all that's left is the URL or command to run."
+          action={<JobTemplates />}
           curl={createJobCurl(base)}
           label="create job command"
+          apiNote={<ApiKeyNote />}
         />
       </>
     );

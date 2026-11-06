@@ -52,14 +52,16 @@ test("log in, create a job from plain English, trigger it and see the run", asyn
   await expectAccessible(page, "dashboard (empty)");
 
   // Create a job with a natural-language schedule and watch the live preview.
-  await page.getByRole("link", { name: "New job" }).first().click();
+  await expect(page.getByRole("link", { name: /Check a URL is up/ })).toBeVisible();
+  await page.getByRole("link", { name: "Start from scratch" }).first().click();
   await expect(page.getByRole("heading", { name: "New job" })).toBeVisible();
   await expectAccessible(page, "new job");
   await page.getByRole("button", { name: "Create job", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Check these fields");
-  await expect(page.getByLabel("Name", { exact: true })).toBeFocused();
-  await page.getByRole("link", { name: "Schedule: Schedule is required", exact: true }).click();
+  // Name is optional (it falls back to the URL), so the first problem is the schedule.
   await expect(page.getByLabel("Schedule", { exact: true })).toBeFocused();
+  await page.getByRole("link", { name: "URL: URL is required", exact: true }).click();
+  await expect(page.getByLabel("URL", { exact: true })).toBeFocused();
   await expectAccessible(page, "new job with errors");
   await page.getByLabel("Name", { exact: true }).fill("e2e-heartbeat");
   await page.getByLabel("Schedule", { exact: true }).fill("every 5 minutes");
@@ -133,7 +135,7 @@ test("log in, create a job from plain English, trigger it and see the run", asyn
   await expect(secret).toBeVisible();
   await expect(secret.getByText(/whsec_/)).toBeVisible();
   await expectAccessible(page, "signing secret dialog");
-  await secret.getByRole("button", { name: "I’ve saved it" }).click();
+  await secret.getByRole("button", { name: "Continue to job" }).click();
 
   // Job detail: trigger it and follow the run.
   await expect(page.getByRole("heading", { name: "e2e-heartbeat" })).toBeVisible();
@@ -283,7 +285,7 @@ test("self-hosted command editor tests, creates and runs a command", async ({ pa
   await expectAccessible(page, "login");
   await page.getByLabel("Name").fill("e2e-command");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.getByRole("link", { name: "New job" }).first().click();
+  await page.getByRole("link", { name: "Start from scratch" }).first().click();
   await page.getByLabel("Name", { exact: true }).fill("e2e-command");
   await page.getByLabel("Schedule", { exact: true }).fill("every hour");
   await page.getByRole("radio", { name: "Command", exact: true }).press("Space");

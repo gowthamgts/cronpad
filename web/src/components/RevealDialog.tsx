@@ -3,7 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 /** Shows a credential once; closing it discards the value from the UI. */
-export function RevealDialog({ value, title, description, label, onClose }: { value: string | null; title: string; description: string; label: string; onClose: () => void }) {
+export function RevealDialog({
+  value,
+  title,
+  description,
+  label,
+  note = "You won’t be able to see this again. Store it somewhere safe before closing.",
+  confirmLabel = "I’ve saved it",
+  onClose,
+}: {
+  value: string | null;
+  title: string;
+  description: string;
+  label: string;
+  note?: string;
+  confirmLabel?: string;
+  onClose: () => void;
+}) {
   return (
     <Dialog open={value !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -12,9 +28,9 @@ export function RevealDialog({ value, title, description, label, onClose }: { va
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         {value ? <CopyBlock text={value} label={label} /> : null}
-        <p className="text-sm font-medium">You won’t be able to see this again. Store it somewhere safe before closing.</p>
+        <p className="text-sm font-medium">{note}</p>
         <DialogFooter>
-          <Button onClick={onClose}>I’ve saved it</Button>
+          <Button onClick={onClose}>{confirmLabel}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

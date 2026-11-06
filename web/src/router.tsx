@@ -12,6 +12,7 @@ import { JobsPage } from "@/pages/Jobs";
 import { LoginPage } from "@/pages/Login";
 import { RunDetailPage } from "@/pages/RunDetail";
 import { SettingsPage } from "@/pages/Settings";
+import { isJobTemplate, type JobTemplateKey } from "@/lib/jobTemplates";
 
 interface RouterContext {
   queryClient: QueryClient;
@@ -94,7 +95,14 @@ const jobsRoute = createRoute({
   }),
   component: JobsPage,
 });
-const newJobRoute = createRoute({ getParentRoute: () => authedRoute, path: "/jobs/new", component: NewJobPage });
+const newJobRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: "/jobs/new",
+  validateSearch: (s: Record<string, unknown>): { template?: JobTemplateKey } => (isJobTemplate(s.template) ? { template: s.template } : {}),
+  component: function NewJobRoute() {
+    return <NewJobPage template={newJobRoute.useSearch().template} />;
+  },
+});
 const jobRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: "/jobs/$jobId",

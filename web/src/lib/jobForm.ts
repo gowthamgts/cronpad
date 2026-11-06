@@ -117,6 +117,23 @@ export function buildSinkConfig(v: JobFormValues): Record<string, unknown> {
   return config;
 }
 
+/** The name a job gets when the Name field is left empty: the URL's host and path, or the command's file name. */
+export function suggestJobName(v: JobFormValues): string {
+  let name: string;
+  if (v.sinkKind === "webhook") {
+    const url = v.webhook.url.trim();
+    try {
+      const u = new URL(url);
+      name = (u.host + u.pathname).replace(/\/+$/, "");
+    } catch {
+      name = url.replace(/^https?:\/\//, "");
+    }
+  } else {
+    name = v.command.command.trim().split(/\s+/)[0]?.split("/").pop() ?? "";
+  }
+  return name.slice(0, rules.jobNameMax);
+}
+
 /** A create/update body with the fields the form always fills in. */
 export type JobBody = JobCreate & Required<Pick<JobCreate, "name" | "schedule" | "sink">>;
 
@@ -129,7 +146,7 @@ export function buildJobInput(v: JobFormValues): JobBody {
   if (v.retry.multiplier) retry.multiplier = Number(v.retry.multiplier);
   if (v.retry.jitter) retry.jitter = Number(v.retry.jitter);
   const input: JobBody = {
-    name: v.name.trim(),
+    name: v.name.trim() || suggestJobName(v),
     schedule: { expr: v.schedule.expr.trim(), kind: v.schedule.mode, timezone: v.timezone },
     sink: { kind: v.sinkKind, config: buildSinkConfig(v) },
     tags: parseTags(v.tags),
@@ -209,8 +226,10 @@ export type FormErrors = Record<string, string>;
 /** Client-side checks mirroring the server contract (limits come from openapi.yaml). */
 export function validateJobForm(v: JobFormValues, opts: { scheduleValid: boolean }): FormErrors {
   const e: FormErrors = {};
-  const name = v.name.trim();
-  if (name.length < rules.jobNameMin) e.name = "Name is required";
+  // An empty name falls back to the target; when that is missing too, the URL or command error already says so.
+  const name = v.name.trim() || suggestJobName(v);
+  const targetMissing = v.sinkKind === "webhook" ? !v.webhook.url.trim() : !v.command.command.trim();
+  if (name.length < rules.jobNameMin && !targetMissing) e.name = "Name is required";
   else if (name.length > rules.jobNameMax) e.name = `Name must be at most ${rules.jobNameMax} characters`;
   if (v.description.length > rules.jobDescriptionMax) e.description = `Description must be at most ${rules.jobDescriptionMax} characters`;
   if (parseTags(v.tags).length > rules.tagsMax) e.tags = `At most ${rules.tagsMax} tags`;

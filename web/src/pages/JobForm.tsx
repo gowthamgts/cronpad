@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, CircleAlert, Send } from "lucide-react";
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, call, type Schemas } from "@/api/client";
 import { useFeatures, useInvalidate, useJob, type Job } from "@/api/hooks";
 import { rules } from "@/api/rules";
@@ -16,7 +16,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input, Textarea } from "@/components/ui/input";
 import { TagInput } from "@/components/ui/tag-input";
-import { buildJobInput, parseTags, emptyForm, formFromJob, validateJobForm, type FormErrors, type JobFormValues } from "@/lib/jobForm";
+import { buildJobInput, parseTags, emptyForm, formFromJob, suggestJobName, validateJobForm, type FormErrors, type JobFormValues } from "@/lib/jobForm";
+import { JOB_TEMPLATES, type JobTemplateKey } from "@/lib/jobTemplates";
 import Combobox from "@/components/ui/combobox";
 import { browserZone, normalizeZone, zoneOptions } from "@/lib/timezones";
 import { usePageTitle } from "@/lib/usePageTitle";
@@ -25,12 +26,15 @@ const ZONES = zoneOptions();
 const advancedFields = new Set(["max_attempts", "multiplier", "initial_interval", "max_interval", "jitter", "timeout", "sla_threshold", "auto_disable_threshold"]);
 const fieldLabels: Record<string, string> = { name: "Name", description: "Description", tags: "Tags", schedule: "Schedule", url: "URL", headers: "Headers", command: "Command", successCodes: "Success codes", retryOn: "Retry on", successExitCodes: "Success exit codes", retryExitCodes: "Retry exit codes", max_attempts: "Max attempts", multiplier: "Multiplier", initial_interval: "Initial interval", max_interval: "Max interval", jitter: "Jitter", timeout: "Timeout", sla_threshold: "SLA threshold", auto_disable_threshold: "Auto-disable after" };
 
-export function NewJobPage() {
+export function NewJobPage({ template }: { template?: JobTemplateKey }) {
   usePageTitle("New job");
   const features = useFeatures();
   // The server decides what a new job's code fields start with, so wait for it (a failed lookup falls back to the built-ins).
   if (features.isPending) return <Loading label="Loading job form" />;
-  return <JobForm initial={emptyForm(browserZone(), features.data?.defaults)} />;
+  const blank = emptyForm(browserZone(), features.data?.defaults);
+  // A command template on a server without the command sink falls back to a blank form.
+  const usable = template && !(template === "command" && !features.data?.sinks.command) ? template : undefined;
+  return <JobForm key={usable ?? "blank"} initial={usable ? JOB_TEMPLATES[usable].apply(blank) : blank} focusTarget={usable !== undefined} />;
 }
 
 export function EditJobPage({ jobId }: { jobId: string }) {
@@ -41,7 +45,7 @@ export function EditJobPage({ jobId }: { jobId: string }) {
   return <JobForm key={job.data.id} initial={formFromJob(job.data)} job={job.data} />;
 }
 
-function JobForm({ initial, job }: { initial: JobFormValues; job?: Job }) {
+function JobForm({ initial, job, focusTarget }: { initial: JobFormValues; job?: Job; focusTarget?: boolean }) {
   const navigate = useNavigate();
   const invalidate = useInvalidate();
   const features = useFeatures();
@@ -55,6 +59,16 @@ function JobForm({ initial, job }: { initial: JobFormValues; job?: Job }) {
   const [testResult, setTestResult] = useState<Schemas["TestResult"] | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const onValidity = useCallback((valid: boolean) => setScheduleValid(valid), []);
+  // A template already picked the schedule, so start where the user still has typing to do.
+  useEffect(() => {
+    if (!focusTarget) return;
+    const target = document.getElementById(initial.sinkKind === "webhook" ? "job-url" : "job-command");
+    target?.focus({ preventScroll: true });
+    // The router restores scroll to the top after mount; scroll once that has happened.
+    const frame = requestAnimationFrame(() => requestAnimationFrame(() => target?.scrollIntoView({ block: "center" })));
+    return () => cancelAnimationFrame(frame);
+  }, [focusTarget, initial.sinkKind]);
+  const suggestedName = suggestJobName(values);
 
   const currentErrors = validateJobForm(values, { scheduleValid });
   const errors: FormErrors = submitted ? currentErrors : Object.fromEntries(Object.entries(currentErrors).filter(([key]) => key in testErrors));
@@ -154,8 +168,8 @@ function JobForm({ initial, job }: { initial: JobFormValues; job?: Job }) {
             <CardTitle tab>basics</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4">
-            <Field id="job-name" label="Name" error={fieldError("name")} labelAside={values.name.trim().length >= rules.jobNameMax - 40 ? `${values.name.trim().length}/${rules.jobNameMax}` : undefined}>
-              {(p) => <Input {...p} maxLength={rules.jobNameMax + 20} autoComplete="off" value={values.name} onChange={(e) => set("name", e.target.value)} />}
+            <Field id="job-name" label="Name" error={fieldError("name")} hint={job ? undefined : values.sinkKind === "webhook" ? "Optional. Leave it empty to name the job after its URL." : "Optional. Leave it empty to name the job after its command."} labelAside={values.name.trim().length >= rules.jobNameMax - 40 ? `${values.name.trim().length}/${rules.jobNameMax}` : undefined}>
+              {(p) => <Input {...p} maxLength={rules.jobNameMax + 20} autoComplete="off" placeholder={job ? undefined : suggestedName || undefined} value={values.name} onChange={(e) => set("name", e.target.value)} />}
             </Field>
             <Field id="job-description" label="Description (optional)" error={fieldError("description")}>
               {(p) => <Textarea {...p} value={values.description} onChange={(e) => set("description", e.target.value)} />}
@@ -185,7 +199,7 @@ function JobForm({ initial, job }: { initial: JobFormValues; job?: Job }) {
             <CardDescription>Choose what happens each time this job runs.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
-
+            <SinkEditor values={values} onChange={(next) => { setValues(next); setTestErrors({}); setTestResult(null); setTestError(null); }} errors={errors} commandAllowed={commandAllowed} defaults={features.data?.defaults} />
             <div className="grid gap-3 rounded-md border border-line bg-sunken/60 p-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div><p className="text-sm font-bold">{values.sinkKind === "webhook" ? "Send a test request now" : "Run a test command now"}</p><p className="text-xs text-muted-foreground">Makes a real {values.sinkKind === "webhook" ? "request" : "execution"} — doesn’t create or save the job.</p></div>
@@ -196,7 +210,6 @@ function JobForm({ initial, job }: { initial: JobFormValues; job?: Job }) {
               {testError ? <p role="alert" className="text-sm text-destructive">{testError}</p> : null}
               <div aria-live="polite">{testResult ? <TestResultView result={testResult} /> : null}</div>
             </div>
-            <SinkEditor values={values} onChange={(next) => { setValues(next); setTestErrors({}); setTestResult(null); setTestError(null); }} errors={errors} commandAllowed={commandAllowed} defaults={features.data?.defaults} />
           </CardContent>
         </Card>
 
@@ -266,6 +279,8 @@ function JobForm({ initial, job }: { initial: JobFormValues; job?: Job }) {
         title="Signing secret"
         description="cronpad signs every webhook request with this secret. Use it to verify requests really come from your job."
         label="signing secret"
+        note="Only needed if your endpoint checks signatures. You can rotate it from the job page any time."
+        confirmLabel="Continue to job"
         onClose={() => {
           const id = secret?.jobId;
           setSecret(null);

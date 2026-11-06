@@ -49,7 +49,7 @@ export function Unavailable({ feature }: { feature: string }) {
   );
 }
 
-export function EmptyState({ title, description, curl, label, action }: { title: string; description: string; curl?: string; label?: string; action?: ReactNode }) {
+export function EmptyState({ title, description, curl, label, action, apiNote }: { title: string; description: string; curl?: string; label?: string; action?: ReactNode; apiNote?: ReactNode }) {
   return (
     <div className="empty-state grid min-w-0 gap-4 box border-dashed p-5">
       <div className="flex min-w-0 items-start gap-3">
@@ -62,7 +62,7 @@ export function EmptyState({ title, description, curl, label, action }: { title:
       {action ? <div>{action}</div> : null}
       {curl ? (
         <div className="grid min-w-0 gap-2">
-          <p className="text-xs font-medium text-ink-soft">Or use the API:</p>
+          <p className="text-xs font-medium text-ink-soft">Or use the API{apiNote ? <> {apiNote}</> : null}:</p>
           <CopyBlock text={curl} label={label ?? "curl command"} />
         </div>
       ) : null}

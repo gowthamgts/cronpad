@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bucketRuns } from "@/components/RunsChart";
-import { buildJobInput, emptyForm, validateJobForm } from "./jobForm";
+import { buildJobInput, emptyForm, suggestJobName, validateJobForm } from "./jobForm";
+import { JOB_TEMPLATES } from "./jobTemplates";
 import { isUrlOrTemplate, validateKeyName, validateSecretName, validateSecretValue, validateWorkspace } from "./validation";
 
 describe("job form", () => {
@@ -14,6 +15,31 @@ describe("job form", () => {
 
   it("accepts a minimal valid form", () => {
     expect(validateJobForm(valid(), { scheduleValid: true })).toEqual({});
+  });
+
+  it("names a job after its target when Name is empty", () => {
+    const form = valid();
+    form.name = "  ";
+    form.webhook.url = "https://api.example.com/hooks/nightly/";
+    expect(validateJobForm(form, { scheduleValid: true })).toEqual({});
+    expect(buildJobInput(form).name).toBe("api.example.com/hooks/nightly");
+    form.sinkKind = "command";
+    form.command.command = "/usr/local/bin/backup --full";
+    expect(suggestJobName(form)).toBe("backup");
+    form.command.command = "";
+    const errors = validateJobForm(form, { scheduleValid: true });
+    expect(errors.name).toBeUndefined();
+    expect(errors.command).toBe("Command is required");
+  });
+
+  it("starts templates with a schedule and leaves the target to the user", () => {
+    for (const t of Object.values(JOB_TEMPLATES)) {
+      const form = t.apply(emptyForm("UTC"));
+      expect(form.schedule.expr).not.toBe("");
+      expect(form.webhook.url).toBe("");
+      expect(form.command.command).toBe("");
+    }
+    expect(JOB_TEMPLATES.uptime.apply(emptyForm("UTC")).webhook.method).toBe("GET");
   });
 
   it("mirrors the server's field rules", () => {
