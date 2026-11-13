@@ -11,7 +11,7 @@ import (
 )
 
 func TestDeploymentYAML(t *testing.T) {
-	files := []string{"docker-compose.yml", "docker-compose.seaweedfs.yml", "litestream.yml", "otel-collector.yml", "prometheus.yml", "prometheus/alerts.yml", "../.goreleaser.yaml", "../.github/workflows/ci.yml", "../.github/workflows/release.yml"}
+	files := []string{"../docker-compose.yml", "docker-compose.yml", "docker-compose.seaweedfs.yml", "litestream.yml", "otel-collector.yml", "prometheus.yml", "prometheus/alerts.yml", "../.goreleaser.yaml", "../.github/workflows/ci.yml", "../.github/workflows/release.yml"}
 	k8s, err := filepath.Glob("kubernetes/*.yml")
 	if err != nil {
 		t.Fatal(err)

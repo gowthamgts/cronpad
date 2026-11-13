@@ -13,11 +13,24 @@ You can signup for a free account at [cronpad.com](https://cronpad.com) and test
 
 ## Self-hosting
 
-For self-hosting, follow the Cronpad website's [installation guide](https://cronpad.com/docs/self-hosting/installation),
-[production checklist](https://cronpad.com/docs/self-hosting/production-checklist),
-and [backup documentation](https://cronpad.com/docs/self-hosting/backups).
-The files in `deploy/` are for **local development and testing only**, not
-production deployment instructions.
+The image is `ghcr.io/gowthamgts/cronpad:latest` (or pin a version such as `0.0.5`).
+Use the [`docker-compose.yml`](docker-compose.yml) at the repository root:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/gowthamgts/cronpad/main/docker-compose.yml
+# Put sign-in settings and a persistent CRONPAD_SECRETS__ENCRYPTION_KEY in .env, then:
+docker compose up -d
+```
+
+The [self-hosting guide](https://cronpad.com/docs/get-started/self-hosted) walks
+through `.env`, sign-in and your first job. Before relying on it, read the
+[production checklist](https://cronpad.com/docs/self-hosting/production-checklist)
+and [backup documentation](https://cronpad.com/docs/self-hosting/backups). Other
+install methods (Docker, Kubernetes, binary) are in the
+[installation guide](https://cronpad.com/docs/self-hosting/installation).
+
+The Compose files in `deploy/` build from source and add monitoring tooling; they
+are for **local development and testing only**.
 
 ## Local development
 

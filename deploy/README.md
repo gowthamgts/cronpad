@@ -3,8 +3,9 @@
 The files in this directory are for **local development and testing only**.
 They are not production deployment instructions.
 
-For production deployment documentation, see [Self-hosting](../README.md#self-hosting)
-in the main README.
+To self-host cronpad, use [`docker-compose.yml`](../docker-compose.yml) at the
+repository root, which runs the published image. See
+[Self-hosting](../README.md#self-hosting) in the main README.
 
 ## Local samples
 

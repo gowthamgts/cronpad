@@ -1,0 +1,13 @@
+# Self-hosting Compose file. Put your settings in .env next to it; see
+# https://cronpad.com/docs/get-started/self-hosted. For the local development
+# stack (build from source, OTel, Prometheus, Grafana), use deploy/docker-compose.yml.
+services:
+  cronpad:
+    image: ghcr.io/gowthamgts/cronpad:latest
+    ports: ['8080:8080']
+    env_file: .env
+    volumes: [cronpad-data:/data] # cronpad.db, history.db and the rebuildable queue file
+    stop_grace_period: 40s
+    restart: unless-stopped
+volumes:
+  cronpad-data:

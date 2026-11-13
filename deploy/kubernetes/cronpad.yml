@@ -30,7 +30,7 @@ spec:
       terminationGracePeriodSeconds: 45
       containers:
         - name: cronpad
-          image: ghcr.io/gowthamgts/cronpad:1
+          image: ghcr.io/gowthamgts/cronpad:latest
           ports:
             - {name: http, containerPort: 8080}
           envFrom:
