@@ -6,6 +6,9 @@ services:
     image: ghcr.io/gowthamgts/cronpad:latest
     ports: ['8080:8080']
     env_file: .env
+    environment:
+      # Command jobs are off unless .env sets CRONPAD_SINKS__COMMAND__ENABLED=true.
+      CRONPAD_SINKS__COMMAND__ENABLED: ${CRONPAD_SINKS__COMMAND__ENABLED:-false}
     volumes: [cronpad-data:/data] # cronpad.db, history.db and the rebuildable queue file
     stop_grace_period: 40s
     restart: unless-stopped

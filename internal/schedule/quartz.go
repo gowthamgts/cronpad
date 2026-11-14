@@ -316,5 +316,16 @@ func (q *quartz) describe() string {
 	case q.dom != "?" && q.dom != "*":
 		day = "on day " + q.dom + " of every month"
 	}
-	return timepart + " " + day
+	out := timepart + " " + day
+	if len(q.fields[4]) < 12 {
+		names := make([]string, len(q.fields[4]))
+		for i, m := range q.fields[4] {
+			names[i] = time.Month(m).String()
+		}
+		out += " in " + strings.Join(names, ", ")
+	}
+	if n := len(q.fields[6]); n > 0 && n <= 5 {
+		out += " during " + ints(q.fields[6])
+	}
+	return out
 }

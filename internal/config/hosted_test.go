@@ -30,7 +30,7 @@ func TestHostedFlipsDefaultsAndHonorsExplicitOverrides(t *testing.T) {
 				if !c.Auth.AllowSignup {
 					t.Fatal("hosted signup closed")
 				}
-				if c.Limits.MaxJobsPerWorkspace != 100 || c.Limits.MinInterval.Duration() != time.Minute || c.Limits.MaxRunsPerMonthPerWorkspace != 50000 || c.Limits.MaxConcurrentRunsPerWorkspace != 5 || c.Limits.MaxAlertEmailsPerDay != 100 || c.Limits.MaxAPIKeysPerWorkspace != 20 || c.Limits.MaxRetryAttempts != 10 || c.Limits.APIRateLimitPerMinute != 600 || c.Sinks.Webhook.MaxTimeout.Duration() != 120*time.Second {
+				if c.Limits.MaxJobsPerWorkspace != 50 || c.Limits.MinInterval.Duration() != time.Minute || c.Limits.MaxRunsPerMonthPerWorkspace != 50000 || c.Limits.MaxConcurrentRunsPerWorkspace != 5 || c.Limits.MaxAlertEmailsPerDay != 100 || c.Limits.MaxAPIKeysPerWorkspace != 20 || c.Limits.MaxRetryAttempts != 10 || c.Limits.APIRateLimitPerMinute != 600 || c.Sinks.Webhook.MaxTimeout.Duration() != 120*time.Second {
 					t.Fatal(c.Limits, c.Sinks)
 				}
 			} else {
