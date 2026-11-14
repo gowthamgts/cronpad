@@ -219,8 +219,10 @@ func (j *Jobs) build(ctx context.Context, in jobInput, old *sqlitegen.Job) (sqli
 	defer cancel()
 	spec := schedule.Spec{Expr: in.Schedule.Expr, Kind: in.Schedule.Kind, Timezone: in.Schedule.Timezone, StartsAt: in.Schedule.StartsAt, EndsAt: in.Schedule.EndsAt, Count: in.Schedule.Count}
 	anchor := j.Clock.Now()
+	scheduleChanged := true
 	if old != nil && reflect.DeepEqual(in.Schedule, inputFrom(*old).Schedule) {
 		anchor = jobAnchor(*old)
+		scheduleChanged = false
 	}
 	reference := clockwork.NewFakeClockAt(anchor)
 	job.ScheduleAnchorAt = sql.NullInt64{Int64: anchor.UnixMilli(), Valid: true}
@@ -244,8 +246,14 @@ func (j *Jobs) build(ctx context.Context, in jobInput, old *sqlitegen.Job) (sqli
 			return job, 403, fmt.Sprintf("limit:min_interval:%d", j.Config.Limits.MinInterval.Duration().Milliseconds())
 		}
 	}
+	// DECISION: reject new or changed schedules that can never fire. An unchanged schedule keeps its
+	// original anchor, so a finished job can still be renamed or retagged.
+	_, fires := parsed.Next(j.Clock.Now())
 	if ctx.Err() != nil {
 		return job, 400, "schedule computation budget exceeded"
+	}
+	if !fires && scheduleChanged {
+		return job, 400, NoFutureOccurrences
 	}
 	if len(in.Sink.Config) > 65536 {
 		return job, 400, "sink config exceeds 64 KiB"

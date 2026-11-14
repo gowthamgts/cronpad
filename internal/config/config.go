@@ -86,7 +86,7 @@ func Load(ctx context.Context, path string, flags *pflag.FlagSet, sections map[s
 		return Config{}, fmt.Errorf("merge config: %w", err)
 	}
 	if k.String("mode") == "hosted" {
-		defaults := map[string]any{"sinks.webhook.allow_private_networks": false, "sinks.command.enabled": false, "auth.allow_signup": true, "limits.max_jobs_per_workspace": 100, "limits.min_interval": "1m", "limits.max_runs_per_month_per_workspace": 50000, "limits.max_concurrent_runs_per_workspace": 5, "limits.max_alert_emails_per_day": 100, "limits.max_api_keys_per_workspace": 20, "limits.max_retry_attempts": 10, "limits.api_rate_limit_per_minute": 600, "sinks.webhook.max_timeout": "120s"}
+		defaults := map[string]any{"sinks.webhook.allow_private_networks": false, "sinks.command.enabled": false, "auth.allow_signup": true, "limits.max_jobs_per_workspace": 50, "limits.min_interval": "1m", "limits.max_runs_per_month_per_workspace": 50000, "limits.max_concurrent_runs_per_workspace": 5, "limits.max_alert_emails_per_day": 100, "limits.max_api_keys_per_workspace": 20, "limits.max_retry_attempts": 10, "limits.api_rate_limit_per_minute": 600, "sinks.webhook.max_timeout": "120s"}
 		for key, value := range defaults {
 			if !explicit.Exists(key) {
 				_ = k.Set(key, value)

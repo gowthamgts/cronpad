@@ -59,6 +59,9 @@ func Validate(spec schedule.Spec, clk clockwork.Clock, minimum time.Duration) (V
 	return ValidateContext(context.Background(), spec, clk, minimum)
 }
 
+// NoFutureOccurrences is the validation message for a schedule that never fires after the reference time.
+const NoFutureOccurrences = "schedule has no future occurrences"
+
 // ValidateContext applies a caller-owned cooperative compute deadline.
 func ValidateContext(ctx context.Context, spec schedule.Spec, clk clockwork.Clock, minimum time.Duration) (Validation, schedule.Schedule) {
 	s, err := schedule.ParseContext(ctx, spec, clk)
@@ -77,8 +80,12 @@ func ValidateContext(ctx context.Context, spec schedule.Spec, clk clockwork.Cloc
 	if gap := schedule.MinGap(s, clk.Now(), 100); gap > 0 && gap < minimum {
 		result.Errors = append(result.Errors, &schedule.Error{Kind: s.Kind(), Message: "schedule interval is below the configured minimum " + minimum.String()})
 	}
+	// DECISION: a schedule that can never fire (a past one-off, an impossible date) is an error, not a completed job.
+	_, fires := s.Next(clk.Now())
 	if ctx.Err() != nil {
 		result.Errors = append(result.Errors, &schedule.Error{Kind: s.Kind(), Message: "schedule computation budget exceeded"})
+	} else if !fires {
+		result.Errors = append(result.Errors, &schedule.Error{Kind: s.Kind(), Length: len(spec.Expr), Message: NoFutureOccurrences})
 	}
 	result.Valid = len(result.Errors) == 0
 	return result, s

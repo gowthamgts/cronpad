@@ -69,6 +69,17 @@ func parseRule(expr string, anchor time.Time, loc *time.Location) (func(time.Tim
 		return intervalNext(anchor.Truncate(time.Second), time.Duration(original.Options.Interval)*unit), canonical, description, count, until, nil
 	}
 	normalized := original.Options
+	// rrule-go derives missing time parts from DTSTART without storing them in Options.
+	// DECISION: pin them here, because seeking below moves DTSTART to midnight on the 1st.
+	if len(normalized.Byhour) == 0 && normalized.Freq < rrule.HOURLY {
+		normalized.Byhour = []int{normalized.Dtstart.Hour()}
+	}
+	if len(normalized.Byminute) == 0 && normalized.Freq < rrule.MINUTELY {
+		normalized.Byminute = []int{normalized.Dtstart.Minute()}
+	}
+	if len(normalized.Bysecond) == 0 && normalized.Freq < rrule.SECONDLY {
+		normalized.Bysecond = []int{normalized.Dtstart.Second()}
+	}
 	for _, values := range [][]int{normalized.Byhour, normalized.Byminute, normalized.Bysecond, normalized.Bymonth, normalized.Bymonthday} {
 		sort.Ints(values)
 	}

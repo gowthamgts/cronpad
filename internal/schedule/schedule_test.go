@@ -296,3 +296,35 @@ func TestRRuleCountIncludesDTStart(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+// A rule that omits time parts takes them from DTSTART on every occurrence, not only the first few.
+func TestRRuleKeepsStartTimeOfDay(t *testing.T) {
+	now := instant("2026-11-14T10:17:23Z")
+	for _, expr := range []string{"FREQ=MONTHLY;BYDAY=FR;BYMONTHDAY=13", "FREQ=YEARLY;BYMONTH=3;BYMONTHDAY=31;BYHOUR=10", "FREQ=MONTHLY;BYMONTHDAY=1"} {
+		s, err := ParseWithClock(Spec{Kind: RRule, Expr: expr, Timezone: "UTC"}, clockwork.NewFakeClockAt(now))
+		if err != nil {
+			t.Fatal(expr, err)
+		}
+		for _, at := range Upcoming(s, now, 8) {
+			if at.Minute() != 17 || at.Second() != 23 {
+				t.Fatalf("%s: %s lost the start time of day", expr, at)
+			}
+		}
+	}
+}
+
+func TestQuartzDescriptionNamesMonthAndYear(t *testing.T) {
+	for expr, want := range map[string]string{
+		"0 0 0 30 FEB ?":           "At 00:00 on day 30 of every month in February",
+		"0 30 10 ? * MON-FRI 2027": "At 10:30 on Monday, Tuesday, Wednesday, Thursday, Friday during 2027",
+		"0 0 18 L * ?":             "At 18:00 on the last day of every month",
+	} {
+		s, err := ParseWithClock(Spec{Kind: Quartz, Expr: expr, Timezone: "UTC"}, clockwork.NewFakeClockAt(instant("2026-11-14T10:17:23Z")))
+		if err != nil {
+			t.Fatal(expr, err)
+		}
+		if got := s.Describe(); got != want {
+			t.Errorf("%s: got %q, want %q", expr, got, want)
+		}
+	}
+}

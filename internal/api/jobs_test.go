@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"github.com/gowthamgts/cronpad/internal/config"
 	"github.com/gowthamgts/cronpad/internal/netguard"
 	"github.com/gowthamgts/cronpad/internal/queue"
+	"github.com/gowthamgts/cronpad/internal/schedule"
 	"github.com/gowthamgts/cronpad/internal/sink/webhook"
 	"github.com/gowthamgts/cronpad/internal/store"
 )
@@ -272,5 +274,30 @@ func TestQueueOutagePreservesAPIWrites(t *testing.T) {
 	run := jobRequest(t, h, "GET", "/api/v1/runs/"+trigger["run_id"].(string), "alice", "", 200)
 	if run["status"] != "deferred" || run["next_attempt_at"] == nil {
 		t.Fatal(run)
+	}
+}
+
+// Schedules that can never fire are rejected on create and on a schedule change, but a job
+// whose schedule has already run out can still be edited in other ways.
+func TestScheduleWithoutFutureOccurrencesRejected(t *testing.T) {
+	j, h := newJobs(t)
+	body := func(name, expr string) string {
+		return `{"name":"` + name + `","schedule":{"expr":"` + expr + `"},"sink":{"kind":"webhook","config":{"url":"https://example.org"}}}`
+	}
+	for _, expr := range []string{"2020-01-01T00:00:00Z", "0 0 0 30 FEB ?"} {
+		out := jobRequest(t, h, "POST", "/api/v1/jobs", "", body("never", expr), 400)
+		if !strings.Contains(fmt.Sprint(out), NoFutureOccurrences) {
+			t.Fatalf("%s: %v", expr, out)
+		}
+	}
+	job := jobRequest(t, h, "POST", "/api/v1/jobs", "", body("once", "2026-10-17T00:00:00Z"), 201)
+	j.Clock.(interface{ Advance(time.Duration) }).Advance(48 * time.Hour)
+	path := "/api/v1/jobs/" + job["id"].(string)
+	jobRequest(t, h, "PATCH", path, "", `{"name":"renamed"}`, 200)
+	jobRequest(t, h, "PATCH", path, "", `{"schedule":{"expr":"2026-10-16T12:00:00Z"}}`, 400)
+
+	result, _ := Validate(schedule.Spec{Expr: "2020-01-01T00:00:00Z"}, j.Clock, 0)
+	if result.Valid || len(result.Errors) != 1 || result.Errors[0].Message != NoFutureOccurrences {
+		t.Fatalf("validate: %+v", result)
 	}
 }
